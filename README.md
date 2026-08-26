@@ -104,13 +104,13 @@ The plugin can open the scrcpy window straight from a keybinding. Add it to
 your Hyprland Lua config (`~/.config/hypr/bindings.lua`):
 
 ```lua
-o.bind("SUPER + P", "Omadroid (open screen)", "$HOME/.config/omarchy/plugins/com.github.tug-benson.omadroid/scripts/omadroid.sh open")
+o.bind("SUPER + SHIFT + A", "Omadroid (open screen)", "$HOME/.config/omarchy/plugins/com.github.tug-benson.omadroid/scripts/omadroid.sh open")
 ```
 
 `open` auto-detects the transport: it uses a plugged-in USB device, or falls
 back to the saved WiFi IP. Set `SCRCPY_OPTS` (see Quality above) in the session
-that starts Omarchy to tune it. Pick any free key combo — change `SUPER + P`
-if that binding is already taken.
+that starts Omarchy to tune it. Pick any free key combo — change
+`SUPER + SHIFT + A` if that binding is already taken.
 
 ## ✨ Features
 
