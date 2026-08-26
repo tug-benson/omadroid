@@ -774,12 +774,12 @@ Panel {
         // Quick device controls
         Row {
           spacing: Style.space(6)
-          PanelButton { label: "\uDB80\uDC4D"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
-          PanelButton { label: "\uDB80\uDEDC"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
-          PanelButton { label: "\uDB80\uDC3B"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
-          PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
-          PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
-          PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+          PanelButton { label: "\uDB80\uDC4D"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
+          PanelButton { label: "\uDB80\uDEDC"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
+          PanelButton { label: "\uDB80\uDC3B"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
+          PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
+          PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
+          PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
           Rectangle {
             width: 1
             height: Style.space(24)
