@@ -147,11 +147,28 @@ cmd_preview() {
   adb start-server >/dev/null 2>&1
   local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
   [ -z "$dev" ] && { echo "{\"ok\":false}"; exit 1; }
-  if adb -s "$dev" exec-out screencap -p > "$out" 2>/dev/null; then
-    echo "{\"ok\":true}"
-  else
+  local tmp="${out}.new"
+  if ! adb -s "$dev" exec-out screencap -p > "$tmp" 2>/dev/null; then
+    rm -f "$tmp"
     echo "{\"ok\":false}"; exit 1
   fi
+  # Only replace the image when it actually changed, to avoid preview flicker.
+  if [ -s "$out" ] && cmp -s "$tmp" "$out"; then
+    rm -f "$tmp"
+    echo "{\"ok\":true,\"changed\":false}"
+    exit 3
+  fi
+  mv -f "$tmp" "$out"
+  echo "{\"ok\":true,\"changed\":true}"
+}
+
+cmd_input() {
+  local key="$1"; shift
+  local serial; serial=$(take_serial "$@")
+  local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+  [ -z "$dev" ] && { echo "{\"ok\":false}"; exit 1; }
+  adb -s "$dev" shell input keyevent "$key" 2>/dev/null
+  echo "{\"ok\":true}"
 }
 
 cmd_open() {
@@ -241,6 +258,7 @@ case "${1:-status}" in
   open)       shift; cmd_open "$@" ;;
   preview)    cmd_preview "$@" ;;
   devices)    cmd_devices ;;
+  input)      shift; cmd_input "$@" ;;
   config)     shift; cmd_config "$@" ;;
   *)          echo "{\"error\":\"unknown command\"}"; exit 1 ;;
 esac

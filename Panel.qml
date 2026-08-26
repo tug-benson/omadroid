@@ -199,6 +199,13 @@ Panel {
     root.previewRotation = (root.previewRotation + 90) % 360
   }
 
+  function sendKey(key) {
+    if (root.connected === "none" && !root.selectedSerial) return
+    var args = [root.scriptPath, "input", key]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    Quickshell.execDetached(args)
+  }
+
   // ── processes (triggers; output is read from state files via FileView) ─────
   Process {
     id: statusProc
@@ -220,8 +227,11 @@ Panel {
     id: previewProc
     onExited: function(exitCode) {
       if (exitCode === 0) {
+        // image changed -> refresh (and accept the small live-update flicker)
         root.previewToken += 1
         root.previewSource = Util.fileUrl(root.previewPath) + "?" + root.previewToken
+      } else if (exitCode === 3) {
+        // unchanged -> keep the current image (no flicker)
       } else {
         root.previewSource = ""
       }
@@ -460,6 +470,17 @@ Panel {
           PanelButton { label: "Connect"; fg: root.fg(); onClicked: root.doConnect() }
           PanelButton { label: "Wake"; fg: root.fg(); onClicked: root.doWake() }
           PanelButton { label: "Disconnect"; fg: root.fg(); onClicked: root.doDisconnect() }
+        }
+
+        // Quick device controls
+        Row {
+          spacing: Style.space(6)
+          PanelButton { label: "⏪"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
+          PanelButton { label: "⌂"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
+          PanelButton { label: "▢"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
+          PanelButton { label: "⏻"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
+          PanelButton { label: "🔉"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
+          PanelButton { label: "🔊"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
         }
 
         // Live preview (bottom of the panel)
