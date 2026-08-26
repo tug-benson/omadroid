@@ -104,6 +104,8 @@ The plugin can open the scrcpy window straight from a keybinding. Add it to
 your Hyprland Lua config (`~/.config/hypr/bindings.lua`):
 
 ```lua
+-- Free the combo used by the ChatGPT plugin, then bind it to Omadroid
+hl.unbind("SUPER + SHIFT + A")
 o.bind("SUPER + SHIFT + A", "Omadroid (open screen)", "$HOME/.config/omarchy/plugins/com.github.tug-benson.omadroid/scripts/omadroid.sh open")
 ```
 
