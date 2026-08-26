@@ -140,6 +140,55 @@ Settings (WiFi IP, max size, mode) are persisted to
 
 ---
 
+## 🔧 Troubleshooting
+
+**The phone is not detected (status: "Not connected"):**
+- Make sure **USB debugging** is enabled and you accepted the authorization
+  prompt on the phone (Settings → Developer options).
+- Try a different cable / port, then restart the ADB server:
+  ```sh
+  adb kill-server && adb start-server
+  adb devices
+  ```
+- The widget only lists devices shown by `adb devices` as `device`.
+
+**WiFi mode won't connect:**
+- The **first** WiFi connection must happen while the phone is plugged in over
+  USB (the plugin runs `adb tcpip 5555` through the USB link). After that, WiFi
+  works on its own.
+- Check the IP is correct and the phone is on the **same network** as the PC.
+- On Android 11+, you can instead pair via **Wireless debugging** (Developer
+  options) so no USB bootstrap is needed.
+- Manually verify with: `adb connect <ip>:5555`.
+
+**Preview is blank / "Preview unavailable":**
+- The screen may be off — click **Wake** to turn it on.
+- Over WiFi, enable **USB debugging (Security settings)** on the phone if you
+  want the preview/controls to work without re-authorizing after each unlock.
+
+**"Open screen" does nothing:**
+- `scrcpy` must be installed (`pacman -S scrcpy`).
+- A device must be connected (USB or WiFi) before opening.
+- A typo in `SCRCPY_OPTS` can make scrcpy exit immediately — test your flags
+  from a terminal first.
+
+**Touch control on the preview does not react:**
+- The device must be connected and authorized.
+- Over WiFi, inputs are blocked until the device is unlocked at least once, or
+  **USB debugging (Security settings)** is enabled.
+
+**The widget does not appear in the bar:**
+- Run `omarchy plugin validate com.github.tug-benson.omadroid` and
+  `omarchy restart shell`.
+- Make sure the plugin is enabled: `omarchy plugin list`.
+
+**The keyboard shortcut does nothing:**
+- Confirm the script path in your Hyprland bind matches the installed plugin
+  directory.
+- After editing the bind, reload Hyprland (or log out/in).
+
+---
+
 ## 🗑️ Uninstall
 
 ```sh
