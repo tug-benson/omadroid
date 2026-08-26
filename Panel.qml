@@ -26,6 +26,8 @@ Panel {
   property ListModel devices: ListModel {}
   property int previewRotation: 0
   property bool previewExpanded: false
+  property int deviceW: 1080
+  property int deviceH: 2340
 
   function localPath(url) {
     var s = String(url)
@@ -71,6 +73,8 @@ Panel {
       var s = JSON.parse(text.trim())
       root.connected = s.connected || "none"
       root.battery = s.battery || ""
+      root.deviceW = parseInt(s.w) || 1080
+      root.deviceH = parseInt(s.h) || 2340
       if (root.connected === "usb")
         root.statusText = "Connected (USB)" + (s.model ? " — " + s.model : "")
       else if (root.connected === "wifi")
@@ -204,6 +208,38 @@ Panel {
     var args = [root.scriptPath, "input", key]
     if (root.selectedSerial) args.push("--serial", root.selectedSerial)
     Quickshell.execDetached(args)
+  }
+
+  function sendSwipe(x1, y1, x2, y2, dur) {
+    if (root.connected === "none" && !root.selectedSerial) return
+    var args = [root.scriptPath, "swipe", "" + x1, "" + y1, "" + x2, "" + y2, "" + dur]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    Quickshell.execDetached(args)
+  }
+
+  // Map a click position (in preview-box coordinates) to device screen
+  // coordinates, undoing the preview rotation and the aspect-fit letterboxing.
+  function previewToDevice(mx, my) {
+    var boxW = previewBox.width, boxH = previewBox.height
+    var px = mx - boxW / 2, py = my - boxH / 2
+    var ux, uy, r = root.previewRotation
+    if (r === 0)      { ux = px;        uy = py }
+    else if (r === 90)  { ux = -py;       uy = px }
+    else if (r === 180) { ux = -px;       uy = -py }
+    else                { ux = py;        uy = -px }
+    var x2 = ux + boxW / 2, y2 = uy + boxH / 2
+
+    var imgAspect = (root.deviceW && root.deviceH) ? (root.deviceW / root.deviceH) : (1080 / 2340)
+    var boxAspect = boxW / boxH
+    var pixW, pixH, offX, offY
+    if (boxAspect > imgAspect) {
+      pixH = boxH; pixW = boxH * imgAspect; offX = (boxW - pixW) / 2; offY = 0
+    } else {
+      pixW = boxW; pixH = boxW / imgAspect; offX = 0; offY = (boxH - pixH) / 2
+    }
+    var nx = (x2 - offX) / pixW, ny = (y2 - offY) / pixH
+    nx = Math.max(0, Math.min(1, nx)); ny = Math.max(0, Math.min(1, ny))
+    return [Math.round(nx * root.deviceW), Math.round(ny * root.deviceH)]
   }
 
   // ── processes (triggers; output is read from state files via FileView) ─────
@@ -475,16 +511,17 @@ Panel {
         // Quick device controls
         Row {
           spacing: Style.space(6)
-          PanelButton { label: "⏪"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
-          PanelButton { label: "⌂"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
-          PanelButton { label: "▢"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
-          PanelButton { label: "⏻"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
-          PanelButton { label: "🔉"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
-          PanelButton { label: "🔊"; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+          PanelButton { label: "⏪"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
+          PanelButton { label: "⌂"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
+          PanelButton { label: "▢"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
+          PanelButton { label: "⏻"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
+          PanelButton { label: "🔉"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
+          PanelButton { label: "🔊"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
         }
 
         // Live preview (bottom of the panel)
         Rectangle {
+          id: previewBox
           width: parent.width
           height: root.previewExpanded ? Style.space(680) : Style.space(440)
           color: Util.alpha(root.fg(), 0.06)
@@ -514,6 +551,29 @@ Panel {
             font.pixelSize: Style.font.caption
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+          }
+
+          // Tap / swipe directly on the preview to control the device
+          MouseArea {
+            anchors.fill: parent
+            property int startX: 0
+            property int startY: 0
+            property bool down: false
+            onPressed: function(e) {
+              if (root.connected === "none" && !root.selectedSerial) return
+              startX = e.x; startY = e.y; down = true
+            }
+            onReleased: function(e) {
+              if (!down) return
+              down = false
+              if (root.connected === "none" && !root.selectedSerial) return
+              var s = root.previewToDevice(startX, startY)
+              var cur = root.previewToDevice(e.x, e.y)
+              if (Math.abs(e.x - startX) < 12 && Math.abs(e.y - startY) < 12)
+                root.sendSwipe(s[0], s[1], s[0], s[1], 1)
+              else
+                root.sendSwipe(s[0], s[1], cur[0], cur[1], 80)
+            }
           }
 
           // Preview controls (top-right)

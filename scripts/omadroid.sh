@@ -59,12 +59,16 @@ emit_json() {
 }
 
 emit_status_json() {
-  local connected="$1" ip="$2" dev="$3" model="" battery=""
+  local connected="$1" ip="$2" dev="$3" model="" battery="" w="" h=""
   [ -z "$dev" ] && dev="$ip"
   [ "$connected" = "wifi" ] && dev="$ip:$ADB_PORT"
   model=$(adb -s "$dev" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
   battery=$(adb -s "$dev" shell dumpsys battery 2>/dev/null | grep -i "level:" | grep -oE '[0-9]+' | head -1)
-  emit_json "{\"connected\":\"$connected\",\"ip\":\"$ip\",\"model\":\"$model\",\"battery\":\"$battery\"}"
+  local res
+  res=$(adb -s "$dev" shell wm size 2>/dev/null | grep -i "Physical size" | grep -oE '[0-9]+x[0-9]+' | head -1)
+  w=$(echo "$res" | cut -d x -f1)
+  h=$(echo "$res" | cut -d x -f2)
+  emit_json "{\"connected\":\"$connected\",\"ip\":\"$ip\",\"model\":\"$model\",\"battery\":\"$battery\",\"w\":\"$w\",\"h\":\"$h\"}"
 }
 
 # shift out --serial S pairs from the argument list, echoing the serial
@@ -171,6 +175,15 @@ cmd_input() {
   echo "{\"ok\":true}"
 }
 
+cmd_swipe() {
+  local x1="$1" y1="$2" x2="$3" y2="$4" dur="$5"; shift 5
+  local serial; serial=$(take_serial "$@")
+  local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+  [ -z "$dev" ] && { echo "{\"ok\":false}"; exit 1; }
+  adb -s "$dev" shell input swipe "$x1" "$y1" "$x2" "$y2" "$dur" 2>/dev/null
+  echo "{\"ok\":true}"
+}
+
 cmd_open() {
   local mode="usb" ip="" max="1080" serial=""
   while [ $# -gt 0 ]; do
@@ -259,6 +272,7 @@ case "${1:-status}" in
   preview)    cmd_preview "$@" ;;
   devices)    cmd_devices ;;
   input)      shift; cmd_input "$@" ;;
+  swipe)      shift; cmd_swipe "$@" ;;
   config)     shift; cmd_config "$@" ;;
   *)          echo "{\"error\":\"unknown command\"}"; exit 1 ;;
 esac

@@ -118,6 +118,8 @@ that starts Omarchy to tune it.
 - **Multiple devices**: if several phones are detected, a device picker lets
   you choose which one to mirror.
 - **Live preview** with **Rotate** (⟳) and **Expand** (▣) controls.
+- **Direct touch control**: tap and swipe directly on the preview to drive the
+  phone (maps to `adb input tap` / `swipe`, accounting for preview rotation).
 - **Battery level** and a colored connection indicator in the status line.
 
 ## ⚙️ Configuration
