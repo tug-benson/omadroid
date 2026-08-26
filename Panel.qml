@@ -15,7 +15,7 @@ Panel {
   // ── state ────────────────────────────────────────────────────────────────
   property string mode: "usb"            // "usb" | "wifi"
   property string wifiIp: ""
-  property int maxSize: 720
+  property int maxSize: 1080
   property string connected: "none"      // "none" | "usb" | "wifi"
   property string statusText: "Non connecté"
   property string previewSource: ""

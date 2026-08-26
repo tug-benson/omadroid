@@ -34,6 +34,33 @@ The widget shows a 📱 icon in the bar. Clicking it opens a panel:
 - Enable **USB debugging** (Settings → Developer options)
 - Accept the ADB authorization prompt on first USB connection
 
+**WiFi mode (optional — less secure than USB):**
+- The phone and the computer must be on the **same Wi-Fi network**.
+- For the **first** WiFi connection, keep the phone plugged in over USB: the
+  plugin enables ADB-over-TCP (`adb tcpip 5555`) through the USB link, then
+  switches to WiFi. After that you can unplug and reconnect over WiFi using
+  only the phone IP.
+- Use a **stable IP** (static lease or DHCP reservation) so the IP does not
+  change between sessions. If it changes, just update the IP field in the panel.
+- If your phone runs Android 11+, you can also pair via **Wireless debugging**
+  (Settings → Developer options) instead of the USB bootstrap.
+
+**Quality (optional):** Omadroid already launches scrcpy with good defaults
+(`--max-size 1080 --video-bit-rate 16M --max-fps 60`). To override or add
+scrcpy flags, export `SCRCPY_OPTS` in your shell. The plugin appends it to the
+command it builds.
+
+```sh
+# bash  → add to ~/.bashrc
+# zsh   → add to ~/.zshrc
+export SCRCPY_OPTS="--max-fps 60 --video-bit-rate 8M"
+```
+
+> Note: the variable above only reaches the plugin if it is exported in the
+> session that starts Omarchy (your shell rc, or the environment of your
+> display manager / WM). Since Omadroid already ships sensible quality defaults,
+> this is optional.
+
 ---
 
 ## 🚀 Install

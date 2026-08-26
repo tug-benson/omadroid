@@ -123,7 +123,7 @@ cmd_disconnect() {
 }
 
 cmd_open() {
-  local mode="usb" ip="" max="720"
+  local mode="usb" ip="" max="1080"
   while [ $# -gt 0 ]; do
     case "$1" in
       --wifi) mode="wifi" ;;
@@ -135,7 +135,7 @@ cmd_open() {
   [ -z "$ip" ] && ip=$(cfg_get wifi_ip "")
   [ -z "$max" ] && max=$(cfg_get max_size 720)
 
-  local args=("--max-size" "$max" "--video-bit-rate" "12M" "--max-fps" "60" "--window-title" "Omadroid")
+  local args=("--max-size" "$max" "--video-bit-rate" "16M" "--max-fps" "60" "--window-title" "Omadroid")
   if [ "$mode" = "wifi" ]; then
     [ -z "$ip" ] && { echo "{\"error\":\"WiFi IP required\"}"; exit 1; }
     args+=("--tcpip=${ip}:${ADB_PORT}")
@@ -168,7 +168,7 @@ cmd_config() {
       mkdir -p "$CONFIG_DIR"
       {
         echo "wifi_ip=$(cfg_get wifi_ip "")"
-        echo "max_size=$(cfg_get max_size 720)"
+        echo "max_size=$(cfg_get max_size 1080)"
         echo "mode=$(cfg_get mode usb)"
       } > "$CONFIG_FILE"
       cat "$CONFIG_FILE"
