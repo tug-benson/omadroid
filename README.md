@@ -117,6 +117,7 @@ that starts Omarchy to tune it.
 - **Auto-connect over WiFi** when you open the panel and an IP is known.
 - **Multiple devices**: if several phones are detected, a device picker lets
   you choose which one to mirror.
+- **Resolution dropdown** for the scrcpy window: Original / 1080p / 720p / 540p / 480p.
 - **Live preview** with **Rotate** (⟳) and **Expand** (▣) controls.
 - **Direct touch control**: tap and swipe directly on the preview to drive the
   phone (maps to `adb input tap` / `swipe`, accounting for preview rotation).

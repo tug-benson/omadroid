@@ -13,9 +13,18 @@ Panel {
   property var hostWidget: null
 
   // ── state ────────────────────────────────────────────────────────────────
+  property string glyph: "📱"
   property string mode: "usb"            // "usb" | "wifi"
   property string wifiIp: ""
   property int maxSize: 1080
+  property bool resOpen: false
+  property var resolutions: [
+    { label: "Original", value: 0 },
+    { label: "1080p", value: 1080 },
+    { label: "720p", value: 720 },
+    { label: "540p", value: 540 },
+    { label: "480p", value: 480 }
+  ]
   property string connected: "none"      // "none" | "usb" | "wifi"
   property string statusText: "Not connected"
   property string battery: ""
@@ -57,6 +66,12 @@ Panel {
   }
 
   function fg() { return root.barForeground ? root.barForeground : "#ffffff" }
+
+  function resLabel() {
+    for (var i = 0; i < root.resolutions.length; i++)
+      if (root.resolutions[i].value === root.maxSize) return root.resolutions[i].label
+    return root.maxSize > 0 ? (root.maxSize + "p") : "Original"
+  }
 
   // ── actions ────────────────────────────────────────────────────────────────
   function refreshStatus() {
@@ -177,7 +192,7 @@ Panel {
       if (kv.length < 2) continue
       var k = kv[0].trim(), v = kv[1].trim()
       if (k === "wifi_ip") { root.wifiIp = v; if (ipInput) ipInput.text = v }
-      else if (k === "max_size") { root.maxSize = parseInt(v) || 1080; if (sizeInput) sizeInput.text = String(root.maxSize) }
+      else if (k === "max_size") { root.maxSize = parseInt(v) || 1080 }
       else if (k === "mode") { root.mode = (v === "wifi") ? "wifi" : "usb"; syncModeButtons() }
     }
   }
@@ -354,13 +369,23 @@ Panel {
         width: parent.width
         spacing: Style.space(10)
 
-        Text {
-          width: parent.width
-          text: "Omadroid"
-          color: root.fg()
-          font.family: Style.font.family
-          font.pixelSize: Style.font.subtitle
-          font.bold: true
+        Row {
+          spacing: Style.space(8)
+          Text {
+            text: root.glyph
+            color: root.fg()
+            font.family: Style.font.family
+            font.pixelSize: Style.font.subtitle
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          Text {
+            text: "Omadroid"
+            color: root.fg()
+            font.family: Style.font.family
+            font.pixelSize: Style.font.subtitle
+            font.bold: true
+            anchors.verticalCenter: parent.verticalCenter
+          }
         }
 
         // Mode selector (USB default, WiFi opt-in)
@@ -414,42 +439,49 @@ Panel {
           }
         }
 
-        // Max window size for the scrcpy window
-        Row {
-          spacing: Style.space(8)
+        // Resolution dropdown (scrcpy --max-size)
+        Item {
           width: parent.width
-          Text {
-            text: "Size"
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            anchors.verticalCenter: parent.verticalCenter
+          implicitHeight: Style.space(34)
+          z: root.resOpen ? 100 : 0
+
+          PanelButton {
+            anchors.left: parent.left
+            width: parent.width
+            label: "Resolution: " + root.resLabel() + " ▾"
+            fg: root.fg()
+            active: root.resOpen
+            onClicked: root.resOpen = !root.resOpen
           }
-          TextInput {
-            id: sizeInput
-            width: Style.space(70)
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            text: String(root.maxSize)
-            validator: IntValidator { bottom: 120; top: 1600 }
-            onTextChanged: root.maxSize = parseInt(text) || 1080
-            onAccepted: root.saveConfig()
-            Rectangle {
-              anchors.fill: parent
-              color: "transparent"
-              border.color: Util.alpha(root.fg(), 0.25)
-              border.width: 1
-              radius: Style.cornerRadius
-              z: -1
+
+          Rectangle {
+            visible: root.resOpen
+            anchors.top: parent.top
+            anchors.topMargin: Style.space(38)
+            width: parent.width
+            color: Style.colbackground ?? "#1e1e2e"
+            border.color: Util.alpha(root.fg(), 0.25)
+            border.width: 1
+            radius: Style.cornerRadius
+            z: 101
+
+            Column {
+              width: parent.width
+              Repeater {
+                model: root.resolutions
+                PanelButton {
+                  width: parent.width
+                  label: modelData.label
+                  fg: root.fg()
+                  active: root.maxSize === modelData.value
+                  onClicked: {
+                    root.maxSize = modelData.value
+                    root.saveConfig()
+                    root.resOpen = false
+                  }
+                }
+              }
             }
-          }
-          Text {
-            text: "(scrcpy window)"
-            color: Util.alpha(root.fg(), 0.6)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            anchors.verticalCenter: parent.verticalCenter
           }
         }
 

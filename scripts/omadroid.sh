@@ -200,7 +200,8 @@ cmd_open() {
 
   # A specific device is selected: target it directly (works for USB and WiFi serials).
   if [ -n "$serial" ]; then
-    local args=("-s" "$serial" "--max-size" "$max" "--video-bit-rate" "16M" "--max-fps" "60" "--window-title" "Omadroid")
+    local args=("-s" "$serial" "--video-bit-rate" "16M" "--max-fps" "60" "--window-title" "Omadroid")
+    [ -n "$max" ] && [ "$max" != "0" ] && args+=("--max-size" "$max")
     [ -n "${SCRCPY_OPTS:-}" ] && args+=($SCRCPY_OPTS)
     setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
     echo "{\"launched\":true}"
@@ -210,17 +211,27 @@ cmd_open() {
   # Auto-detect transport when not forced by a selected serial.
   local u; u=$(usb_device)
   local w; w=$(wifi_device)
-  if [ "$mode" = "usb" ] && [ -z "$u" ] && [ -n "$w" ]; then mode="wifi"; fi
-  if [ "$mode" = "wifi" ] && [ -z "$w" ] && [ -n "$u" ]; then mode="usb"; fi
-
-  local args=("--max-size" "$max" "--video-bit-rate" "16M" "--max-fps" "60" "--window-title" "Omadroid")
-  if [ "$mode" = "wifi" ]; then
-    [ -z "$ip" ] && { echo "{\"error\":\"WiFi IP required\"}"; exit 1; }
-    args+=("--tcpip=${ip}:${ADB_PORT}")
-  fi
+  local args=("--video-bit-rate" "16M" "--max-fps" "60" "--window-title" "Omadroid")
+  [ -n "$max" ] && [ "$max" != "0" ] && args+=("--max-size" "$max")
   [ -n "${SCRCPY_OPTS:-}" ] && args+=($SCRCPY_OPTS)
-  setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
-  echo "{\"launched\":true}"
+
+  if { [ "$mode" != "wifi" ] || [ -z "$w" ]; } && [ -n "$u" ]; then
+    args=("-s" "$u" "${args[@]}")
+    setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+    echo "{\"launched\":true}"; return
+  fi
+  if [ -n "$w" ]; then
+    args=("-s" "$w" "${args[@]}")
+    setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+    echo "{\"launched\":true}"; return
+  fi
+  if [ "$mode" = "wifi" ] && [ -n "$ip" ]; then
+    args+=("--tcpip=${ip}:${ADB_PORT}")
+    setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+    echo "{\"launched\":true}"; return
+  fi
+  echo "{\"error\":\"No device detected (connect USB or set WiFi IP)\"}"
+  exit 1
 }
 
 cmd_devices() {
