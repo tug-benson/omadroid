@@ -587,9 +587,9 @@ Panel {
             anchors.right: parent.right
             anchors.margins: Style.space(8)
             spacing: Style.space(6)
-            PanelButton { label: "⟳"; fg: root.fg(); onClicked: root.rotatePreview() }
-            PanelButton { label: root.previewExpanded ? "▢" : "▣"; fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
-            PanelButton { label: "💾"; fg: root.fg(); onClicked: root.savePreview() }
+            PanelButton { label: "⟳"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
+            PanelButton { label: root.previewExpanded ? "▢" : "▣"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
+            PanelButton { label: "💾"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.savePreview() }
           }
         }
 
