@@ -100,22 +100,17 @@ enables TCP/IP via USB, then switches to WiFi).
 
 ## ⌨️ Keyboard shortcut (open screen directly)
 
-The plugin can open the scrcpy window straight from a keybinding. Add a bind
-to your Hyprland config (`~/.config/hypr/bindings.lua` or `*.conf`):
+The plugin can open the scrcpy window straight from a keybinding. Add it to
+your Hyprland Lua config (`~/.config/hypr/bindings.lua`):
 
 ```lua
--- bindings.lua (Omarchy uses Lua config)
-bind("$mainMod", "p", "exec", "$HOME/.config/omarchy/plugins/com.github.tug-benson.omadroid/scripts/omadroid.sh open")
-```
-
-```ini
-# hyprland.conf style
-bind = $mainMod, P, exec, $HOME/.config/omarchy/plugins/com.github.tug-benson.omadroid/scripts/omadroid.sh open
+o.bind("SUPER + P", "Omadroid (open screen)", "$HOME/.config/omarchy/plugins/com.github.tug-benson.omadroid/scripts/omadroid.sh open")
 ```
 
 `open` auto-detects the transport: it uses a plugged-in USB device, or falls
 back to the saved WiFi IP. Set `SCRCPY_OPTS` (see Quality above) in the session
-that starts Omarchy to tune it.
+that starts Omarchy to tune it. Pick any free key combo — change `SUPER + P`
+if that binding is already taken.
 
 ## ✨ Features
 
