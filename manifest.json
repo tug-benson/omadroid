@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "tug-benson",
   "license": "MIT",
-  "description": "Affiche et contrôle un téléphone Android (scrcpy/adb) depuis la barre Omarchy. Connexion USB par défaut, WiFi optionnel.",
+  "description": "Mirror and control an Android phone from the Omarchy bar via scrcpy/adb — USB by default, optional WiFi.",
   "kinds": ["bar-widget"],
   "entryPoints": { "barWidget": "BarWidget.qml" },
   "barWidget": {

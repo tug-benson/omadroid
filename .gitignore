@@ -1,0 +1,4 @@
+# Local artifacts (never commit)
+/preview
+*.log
+.DS_Store
