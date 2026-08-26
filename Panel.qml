@@ -17,14 +17,6 @@ Panel {
   property string mode: "usb"            // "usb" | "wifi"
   property string wifiIp: ""
   property int maxSize: 1080
-  property bool resOpen: false
-  property var resolutions: [
-    { label: "Original", value: 0 },
-    { label: "1080p", value: 1080 },
-    { label: "720p", value: 720 },
-    { label: "540p", value: 540 },
-    { label: "480p", value: 480 }
-  ]
   property string connected: "none"      // "none" | "usb" | "wifi"
   property string statusText: "Not connected"
   property string battery: ""
@@ -66,12 +58,6 @@ Panel {
   }
 
   function fg() { return root.barForeground ? root.barForeground : "#ffffff" }
-
-  function resLabel() {
-    for (var i = 0; i < root.resolutions.length; i++)
-      if (root.resolutions[i].value === root.maxSize) return root.resolutions[i].label
-    return root.maxSize > 0 ? (root.maxSize + "p") : "Original"
-  }
 
   // ── actions ────────────────────────────────────────────────────────────────
   function refreshStatus() {
@@ -439,49 +425,30 @@ Panel {
           }
         }
 
-        // Resolution dropdown (scrcpy --max-size)
-        Item {
+        // Resolution (scrcpy --max-size): 1080p or 720p
+        Row {
+          spacing: Style.space(8)
           width: parent.width
-          implicitHeight: Style.space(34)
-          z: root.resOpen ? 100 : 0
-
-          PanelButton {
-            anchors.left: parent.left
-            width: parent.width
-            label: "Resolution: " + root.resLabel() + " ▾"
-            fg: root.fg()
-            active: root.resOpen
-            onClicked: root.resOpen = !root.resOpen
+          Text {
+            text: "Resolution"
+            color: root.fg()
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+            anchors.verticalCenter: parent.verticalCenter
           }
-
-          Rectangle {
-            visible: root.resOpen
-            anchors.top: parent.top
-            anchors.topMargin: Style.space(38)
-            width: parent.width
-            color: "#1e1e2e"
-            border.color: Util.alpha(root.fg(), 0.35)
-            border.width: 1
-            radius: Style.cornerRadius
-            z: 101
-
-            Column {
-              width: parent.width
-              Repeater {
-                model: root.resolutions
-                PanelButton {
-                  width: parent.width
-                  label: modelData.label
-                  fg: root.fg()
-                  active: root.maxSize === modelData.value
-                  onClicked: {
-                    root.maxSize = modelData.value
-                    root.saveConfig()
-                    root.resOpen = false
-                  }
-                }
-              }
-            }
+          PanelButton {
+            label: "1080p"
+            width: Style.space(70)
+            fg: root.fg()
+            active: root.maxSize === 1080
+            onClicked: { root.maxSize = 1080; root.saveConfig() }
+          }
+          PanelButton {
+            label: "720p"
+            width: Style.space(70)
+            fg: root.fg()
+            active: root.maxSize === 720
+            onClicked: { root.maxSize = 720; root.saveConfig() }
           }
         }
 
@@ -624,14 +591,6 @@ Panel {
           fg: root.fg()
           onClicked: root.doOpen()
         }
-      }
-
-      // Overlay that closes the resolution dropdown when clicking outside it.
-      MouseArea {
-        anchors.fill: parent
-        z: 50
-        visible: root.resOpen
-        onClicked: root.resOpen = false
       }
     }
   }
