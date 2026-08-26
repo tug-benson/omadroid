@@ -290,7 +290,7 @@ case "${1:-status}" in
   wake)       shift; cmd_wake "$@" ;;
   disconnect) cmd_disconnect ;;
   open)       shift; cmd_open "$@" ;;
-  preview)    cmd_preview "$@" ;;
+  preview)    shift; cmd_preview "$@" ;;
   devices)    cmd_devices ;;
   input)      shift; cmd_input "$@" ;;
   swipe)      shift; cmd_swipe "$@" ;;

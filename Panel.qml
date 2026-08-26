@@ -511,6 +511,12 @@ Panel {
           PanelButton { label: "Connect"; fg: root.fg(); onClicked: root.doConnect() }
           PanelButton { label: "Wake"; fg: root.fg(); onClicked: root.doWake() }
           PanelButton { label: "Disconnect"; fg: root.fg(); onClicked: root.doDisconnect() }
+          Rectangle {
+            width: 1
+            height: Style.space(24)
+            color: Util.alpha(root.fg(), 0.3)
+          }
+          PanelButton { label: "Open screen"; fg: root.fg(); onClicked: root.doOpen() }
         }
 
         // Quick device controls
@@ -591,12 +597,6 @@ Panel {
             PanelButton { label: root.previewExpanded ? "▢" : "▣"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
             PanelButton { label: "💾"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.savePreview() }
           }
-        }
-
-        PanelButton {
-          label: "Open screen"
-          fg: root.fg()
-          onClicked: root.doOpen()
         }
       }
     }
