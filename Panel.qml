@@ -459,7 +459,8 @@ Panel {
             anchors.top: parent.top
             anchors.topMargin: Style.space(38)
             width: parent.width
-            color: Style.colbackground ?? "#1e1e2e"
+            color: Color.background
+            opacity: 1
             border.color: Util.alpha(root.fg(), 0.25)
             border.width: 1
             radius: Style.cornerRadius
@@ -624,6 +625,14 @@ Panel {
           fg: root.fg()
           onClicked: root.doOpen()
         }
+      }
+
+      // Overlay that closes the resolution dropdown when clicking outside it.
+      MouseArea {
+        anchors.fill: parent
+        z: 50
+        visible: root.resOpen
+        onClicked: root.resOpen = false
       }
     }
   }
