@@ -29,6 +29,12 @@ Panel {
   property bool previewExpanded: false
   property int deviceW: 1080
   property int deviceH: 2340
+  property string sysRam: ""
+  property string sysCpu: ""
+  property string sysStorage: ""
+  property string wifiSsid: ""
+  property string wifiRssi: ""
+  readonly property string iconFont: (root.bar && root.bar.fontFamily) ? root.bar.fontFamily : "CaskaydiaMono Nerd Font"
 
   function localPath(url) {
     var s = String(url)
@@ -45,6 +51,7 @@ Panel {
     root.refreshDevices()
     if (root.mode === "wifi" && root.wifiIp && root.connected === "none") root.doConnect()
     root.refreshStatus()
+    root.refreshSysinfo()
   }
 
   function close() {
@@ -82,8 +89,6 @@ Panel {
         root.statusText = "Connected (WiFi" + (s.ip ? " " + s.ip : "") + ")" + (s.model ? " — " + s.model : "")
       else
         root.statusText = s.error ? "Not connected — " + s.error : "Not connected"
-      if (root.battery)
-        root.statusText += "  🔋 " + root.battery + "%"
       root.refreshPreview()
     } catch (e) {
       root.statusText = "Status error"
@@ -138,6 +143,34 @@ Panel {
     if (root.selectedSerial) args.push("--serial", root.selectedSerial)
     previewProc.command = args
     previewProc.running = true
+  }
+
+  function refreshSysinfo() {
+    if (root.connected === "none" && !root.selectedSerial) return
+    if (sysinfoProc.running) return
+    var args = [root.scriptPath, "sysinfo"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    sysinfoProc.command = args
+    sysinfoProc.running = true
+  }
+
+  function applySysinfo(text) {
+    if (!text) return
+    try {
+      var s = JSON.parse(text.trim())
+      root.sysRam = (s.ram_used ? s.ram_used : "0") + " / " + (s.ram_total ? s.ram_total : "0") + " GB"
+      root.sysCpu = (s.cpu_load != null ? s.cpu_load : "0") + " %"
+      root.sysStorage = (s.storage_free ? s.storage_free : "0") + " / " + (s.storage_total ? s.storage_total : "0") + " GB"
+      root.wifiSsid = s.ssid || ""
+      root.wifiRssi = s.rssi || ""
+    } catch (e) {}
+  }
+
+  function brightness(dir) {
+    if (root.connected === "none" && !root.selectedSerial) return
+    var args = [root.scriptPath, "brightness", dir]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    Quickshell.execDetached(args)
   }
 
   function refreshDevices() {
@@ -287,6 +320,11 @@ Panel {
     onExited: devicesFile.reload()
   }
 
+  Process {
+    id: sysinfoProc
+    onExited: sysinfoFile.reload()
+  }
+
   FileView {
     id: stateFile
     path: "/tmp/omadroid-state.json"
@@ -314,6 +352,15 @@ Panel {
     onLoadFailed: root.parseDevices("[]")
   }
 
+  FileView {
+    id: sysinfoFile
+    path: "/tmp/omadroid-sysinfo.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.applySysinfo(text())
+    onLoadFailed: root.applySysinfo("")
+  }
+
   // ── timers ──────────────────────────────────────────────────────────────────
   Timer {
     id: previewTimer
@@ -337,6 +384,15 @@ Panel {
     interval: 600
     repeat: false
     onTriggered: root.refreshPreview()
+  }
+
+  Timer {
+    id: sysinfoTimer
+    interval: 5000
+    repeat: true
+    running: root.opened
+    triggeredOnStart: true
+    onTriggered: root.refreshSysinfo()
   }
 
   // ── UI ───────────────────────────────────────────────────────────────────────
@@ -363,39 +419,98 @@ Panel {
 
         Row {
           spacing: Style.space(8)
+          width: parent.width
           Text {
-            text: root.glyph
+            id: titleGlyph
+            text: "\uDB80\uDD1C"
             color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.subtitle
+            font.family: root.iconFont
+            font.pixelSize: Style.font.title
             anchors.verticalCenter: parent.verticalCenter
           }
           Text {
+            id: titleText
             text: "Omadroid"
             color: root.fg()
             font.family: Style.font.family
-            font.pixelSize: Style.font.subtitle
+            font.pixelSize: Style.font.title
             font.bold: true
             anchors.verticalCenter: parent.verticalCenter
           }
+          Item {
+            width: parent.width - titleGlyph.width - titleText.width - Style.space(16)
+            height: wifiInfo.height
+            Column {
+              id: wifiInfo
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              spacing: Style.space(2)
+              visible: root.wifiSsid !== ""
+              Text {
+                text: "\uDB81\uDDA9 " + (root.wifiSsid || "—")
+                color: root.fg()
+                font.family: root.iconFont
+                font.pixelSize: Style.font.caption
+                horizontalAlignment: Text.AlignRight
+              }
+              Text {
+                visible: root.wifiRssi !== ""
+                text: root.wifiRssi + " dBm"
+                color: Util.alpha(root.fg(), 0.7)
+                font.family: Style.font.family
+                font.pixelSize: Style.font.caption
+                horizontalAlignment: Text.AlignRight
+              }
+            }
+          }
         }
 
-        // Mode selector (USB default, WiFi opt-in)
+        // Mode selector + live status (same line)
         Row {
           spacing: Style.space(8)
-          PanelButton {
-            id: usbBtn
-            label: "USB"
-            fg: root.fg()
-            active: root.mode === "usb"
-            onClicked: root.setMode("usb")
+          width: parent.width
+          Row {
+            id: modeRow
+            spacing: Style.space(8)
+            PanelButton {
+              id: usbBtn
+              label: "USB"
+              fg: root.fg()
+              active: root.mode === "usb"
+              onClicked: root.setMode("usb")
+            }
+            PanelButton {
+              id: wifiBtn
+              label: "WiFi"
+              fg: root.fg()
+              active: root.mode === "wifi"
+              onClicked: root.setMode("wifi")
+            }
           }
-          PanelButton {
-            id: wifiBtn
-            label: "WiFi"
-            fg: root.fg()
-            active: root.mode === "wifi"
-            onClicked: root.setMode("wifi")
+          Rectangle {
+            width: Style.space(12)
+            height: Style.space(12)
+            radius: width / 2
+            anchors.verticalCenter: parent.verticalCenter
+            color: root.connected === "none" ? "#e5484d"
+                 : (root.connected === "usb" ? "#30a46c" : "#f5a623")
+          }
+          Text {
+            visible: root.battery !== ""
+            text: "\uDB80\uDC79 " + root.battery + "%"
+            color: root.fg()
+            font.family: root.iconFont
+            font.pixelSize: Style.font.caption
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          Text {
+            text: root.statusText
+            color: root.fg()
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            elide: Text.ElideRight
+            width: Math.max(Style.space(40), parent.width - modeRow.width - Style.space(70))
+            anchors.verticalCenter: parent.verticalCenter
           }
         }
 
@@ -431,16 +546,25 @@ Panel {
           }
         }
 
-        // Resolution (scrcpy --max-size): 1080p or 720p
+        // Device picker + Resolution (separator between them when several devices)
         Row {
           spacing: Style.space(8)
           width: parent.width
-          Text {
-            text: "Resolution"
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            anchors.verticalCenter: parent.verticalCenter
+          Repeater {
+            model: root.devices.count > 1 ? root.devices : []
+            PanelButton {
+              label: (model.transport === "wifi" ? "\uDB81\uDDA9 " : "\uDB81\uDD53 ") + (model.name || model.serial)
+              iconFont: root.iconFont
+              fg: root.fg()
+              active: root.selectedSerial === model.serial
+              onClicked: root.selectDevice(model.serial)
+            }
+          }
+          Rectangle {
+            visible: root.devices.count > 1
+            width: 1
+            height: Style.space(24)
+            color: Util.alpha(root.fg(), 0.3)
           }
           PanelButton {
             label: "1080p"
@@ -455,53 +579,6 @@ Panel {
             fg: root.fg()
             active: root.maxSize === 720
             onClicked: { root.maxSize = 720; root.saveConfig() }
-          }
-        }
-
-        // Status (with colored indicator)
-        Row {
-          spacing: Style.space(8)
-          width: parent.width
-          Rectangle {
-            width: Style.space(12)
-            height: Style.space(12)
-            radius: width / 2
-            anchors.verticalCenter: parent.verticalCenter
-            color: root.connected === "none" ? "#e5484d"
-                 : (root.connected === "usb" ? "#30a46c" : "#f5a623")
-          }
-          Text {
-            width: parent.width - Style.space(20)
-            text: root.statusText
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            wrapMode: Text.WordWrap
-          }
-        }
-
-        // Device picker (only when several devices are detected)
-        Column {
-          visible: root.devices.count > 1
-          width: parent.width
-          spacing: Style.space(6)
-          Text {
-            text: "Device"
-            color: Util.alpha(root.fg(), 0.6)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-          }
-          Row {
-            spacing: Style.space(6)
-            Repeater {
-              model: root.devices
-              PanelButton {
-                label: (model.transport === "wifi" ? "📶 " : "🔌 ") + (model.name || model.serial)
-                fg: root.fg()
-                active: root.selectedSerial === model.serial
-                onClicked: root.selectDevice(model.serial)
-              }
-            }
           }
         }
 
@@ -522,12 +599,33 @@ Panel {
         // Quick device controls
         Row {
           spacing: Style.space(6)
-          PanelButton { label: "⏪"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
-          PanelButton { label: "⌂"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
-          PanelButton { label: "▢"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
-          PanelButton { label: "⏻"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
-          PanelButton { label: "🔉"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
-          PanelButton { label: "🔊"; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+          PanelButton { label: "\uDB80\uDC4D"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
+          PanelButton { label: "\uDB80\uDEDC"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
+          PanelButton { label: "\uDB80\uDC3B"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
+          PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
+          PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
+          PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+        }
+
+        // Device system stats (RAM / CPU / storage)
+        Row {
+          width: parent.width
+          spacing: Style.space(8)
+          Column {
+            width: (parent.width - Style.space(16)) / 3
+            Text { text: "RAM"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
+            Text { width: parent.width; text: root.sysRam || "—"; color: root.fg(); font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
+          }
+          Column {
+            width: (parent.width - Style.space(16)) / 3
+            Text { text: "CPU"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
+            Text { width: parent.width; text: root.sysCpu || "—"; color: root.fg(); font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
+          }
+          Column {
+            width: (parent.width - Style.space(16)) / 3
+            Text { text: "Stockage"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
+            Text { width: parent.width; text: root.sysStorage || "—"; color: root.fg(); font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
+          }
         }
 
         // Live preview (bottom of the panel)
@@ -593,9 +691,11 @@ Panel {
             anchors.right: parent.right
             anchors.margins: Style.space(8)
             spacing: Style.space(6)
-            PanelButton { label: "⟳"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
-            PanelButton { label: root.previewExpanded ? "▢" : "▣"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
-            PanelButton { label: "💾"; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.savePreview() }
+            PanelButton { label: "\uDB81\uDC67"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
+            PanelButton { label: root.previewExpanded ? "\uDB80\uDE94" : "\uDB80\uDE93"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
+            PanelButton { label: "\uDB80\uDCDB"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("down") }
+            PanelButton { label: "\uDB80\uDCE0"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("up") }
+            PanelButton { label: "\uDB80\uDD93"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.savePreview() }
           }
         }
       }

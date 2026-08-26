@@ -5,6 +5,7 @@ Rectangle {
   id: btn
   property color fg: "#ffffff"
   property string label: ""
+  property string iconFont: ""
   property bool active: false
   signal clicked()
 
@@ -21,7 +22,7 @@ Rectangle {
     anchors.centerIn: parent
     text: btn.label
     color: fg
-    font.family: Style.font.family
+    font.family: btn.iconFont !== "" ? btn.iconFont : Style.font.family
     font.pixelSize: Style.font.body
   }
 

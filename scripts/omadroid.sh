@@ -10,6 +10,8 @@
 #   open [--serial S|--wifi --ip IP] -> launch the interactive scrcpy window
 #   devices                          -> JSON array of {serial, transport, model}
 #   save [dest]                      -> copy the current preview PNG to <dest>
+#   brightness [up|down|set N]       -> adjust screen brightness (0-255)
+#   sysinfo [--serial S]             -> JSON {ram_*, cpu_load, storage_free, ssid, rssi}
 #   config dump                      -> key=value lines (wifi_ip, max_size, mode)
 #   config set <k> <v>               -> persist a setting
 #
@@ -23,6 +25,7 @@ CONFIG_FILE="$CONFIG_DIR/omadroid.conf"
 STATE_FILE="${OMADROID_STATE:-/tmp/omadroid-state.json}"
 DEVICES_FILE="${OMADROID_DEVICES:-/tmp/omadroid-devices.json}"
 PREVIEW_FILE="${OMADROID_PREVIEW:-/tmp/omadroid-preview.png}"
+SYSINFO_FILE="${OMADROID_SYSINFO:-/tmp/omadroid-sysinfo.json}"
 
 # ── config helpers ──────────────────────────────────────────────────────────
 cfg_get() {
@@ -287,6 +290,56 @@ cmd_config() {
   esac
 }
 
+cmd_brightness() {
+  local action="${1:-up}" setval="${2:-}" serial
+  serial=$(take_serial "$@")
+  local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+  [ -z "$dev" ] && { echo '{"ok":false}'; exit 1; }
+  local cur new
+  cur=$(adb -s "$dev" shell settings get system screen_brightness 2>/dev/null | tr -d '\r' | grep -oE '[0-9]+' | head -1)
+  cur=${cur:-128}
+  new=$cur
+  case "$action" in
+    up)   new=$((cur + 25)) ;;
+    down) new=$((cur - 25)) ;;
+    set)  new=${setval:-$cur} ;;
+  esac
+  [ "$new" -lt 5 ] && new=5
+  [ "$new" -gt 255 ] && new=255
+  adb -s "$dev" shell settings put system screen_brightness "$new" >/dev/null 2>&1
+  echo "{\"level\":$new}"
+}
+
+cmd_sysinfo() {
+  adb start-server >/dev/null 2>&1
+  local serial; serial=$(take_serial "$@")
+  local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+  if [ -z "$dev" ]; then
+    printf '{"ram_used":0,"ram_total":0,"cpu_load":0,"storage_free":0,"storage_total":0,"ssid":"","rssi":""}' > "$SYSINFO_FILE"
+    return
+  fi
+  local out ram_total ram_avail ram_used_gb ram_total_gb nproc load1 storage_free_gb storage_total_gb cpu_load ssid rssi diskline storage_free_k storage_total_k
+  out=$(adb -s "$dev" shell "echo MEM; grep -E '^MemTotal|^MemAvailable' /proc/meminfo; echo LOAD; cat /proc/loadavg; echo CPU; top -n 1 2>/dev/null | grep -E '[0-9]+%cpu'; echo DISK; dumpsys diskstats 2>/dev/null | grep -i 'Data-Free:'; echo WIFI; dumpsys wifi 2>/dev/null | grep -E 'SSID:'" 2>/dev/null | tr -d '\r')
+
+  ram_total=$(echo "$out" | awk '/^MEM$/{f=1;next} f&&/MemTotal/{print $2;f=0}')
+  ram_avail=$(echo "$out" | awk '/^MEM$/{f=1;next} f&&/MemAvailable/{print $2}')
+  diskline=$(echo "$out" | awk '/^DISK$/{f=1;next} f{print;f=0}')
+  storage_free_k=$(echo "$diskline" | sed -n 's/.*Data-Free:[[:space:]]*\([0-9]*\)K.*/\1/p')
+  storage_total_k=$(echo "$diskline" | sed -n 's/.*\/[[:space:]]*\([0-9]*\)K.*/\1/p')
+
+  ram_total_gb=$(awk -v t="$ram_total" 'BEGIN{printf "%.1f", t/1048576}')
+  ram_used_gb=$(awk -v t="$ram_total" -v a="$ram_avail" 'BEGIN{printf "%.1f", (t-a)/1048576}')
+  cpu_load=$(echo "$out" | awk '/^CPU$/{f=1;next} f&&/%cpu/{match($0,/([0-9]+)%cpu/,a); mt=a[1]; match($0,/([0-9]+)%idle/,b); id=b[1]; if(mt>0) printf "%d", (mt-id)*100/mt+0.5; f=0}')
+  storage_free_gb=$(awk -v f="$storage_free_k" 'BEGIN{printf "%.1f", f/1048576}')
+  storage_total_gb=$(awk -v f="$storage_total_k" 'BEGIN{printf "%.1f", f/1048576}')
+
+  ssid=$(echo "$out" | sed -n 's/.*SSID:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+  rssi=$(echo "$out" | grep -oE 'mRssi=-?[0-9]+' | head -1 | sed 's/mRssi=//')
+
+  local json="{\"ram_used\":$ram_used_gb,\"ram_total\":$ram_total_gb,\"cpu_load\":$cpu_load,\"storage_free\":$storage_free_gb,\"storage_total\":$storage_total_gb,\"ssid\":\"$ssid\",\"rssi\":\"$rssi\"}"
+  printf '%s' "$json" > "$SYSINFO_FILE"
+}
+
 case "${1:-status}" in
   status)     shift; cmd_status "$@" ;;
   connect)    shift; cmd_connect "$@" ;;
@@ -298,6 +351,8 @@ case "${1:-status}" in
   input)      shift; cmd_input "$@" ;;
   swipe)      shift; cmd_swipe "$@" ;;
   save)       shift; cmd_save "$@" ;;
+  brightness) shift; cmd_brightness "$@" ;;
+  sysinfo)    shift; cmd_sysinfo "$@" ;;
   config)     shift; cmd_config "$@" ;;
   *)          echo "{\"error\":\"unknown command\"}"; exit 1 ;;
 esac

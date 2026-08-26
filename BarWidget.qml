@@ -56,7 +56,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "📱"
+    text: "\uDB80\uDD1C"
     tooltipText: "Omadroid — Android phone"
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton) root.toggle()
