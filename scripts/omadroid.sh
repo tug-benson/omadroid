@@ -410,11 +410,13 @@ cmd_record() {
       local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
       [ -z "$dev" ] && { printf '{"recording":false,"error":"no device"}' > "$REC_FILE"; exit 1; }
       [ -f "$REC_PID_FILE" ] && { printf '{"recording":true,"error":"already recording"}' > "$REC_FILE"; exit 1; }
-      # Stop any leftover recording on the device and clear the old file so a
-      # fresh capture can start cleanly.
-      adb -s "$dev" shell 'pkill -INT screenrecord 2>/dev/null || true' >/dev/null 2>&1
+      adb -s "$dev" shell 'pkill -9 screenrecord 2>/dev/null || true' >/dev/null 2>&1
       sleep 1
       adb -s "$dev" shell rm -f "$REC_REMOTE" >/dev/null 2>&1
+      # Run screenrecord directly. To stop, we SIGKILL the local adb process,
+      # which drops the connection and makes the device finalize (write the
+      # moov atom). SIGTERM/SIGINT and stdin EOF do NOT finalize on this
+      # device's screenrecord build.
       adb -s "$dev" shell screenrecord "$REC_REMOTE" >/dev/null 2>&1 &
       echo $! > "$REC_PID_FILE"
       printf '{"recording":true}' > "$REC_FILE"
@@ -423,15 +425,22 @@ cmd_record() {
       local serial; serial=$(take_serial "$@")
       local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
       if [ -n "$dev" ]; then
-        # Signal the on-device screenrecord directly so it flushes the moov
-        # atom and finalizes the file (killing the local adb alone does not).
-        adb -s "$dev" shell 'pkill -INT screenrecord 2>/dev/null || kill -INT $(pidof screenrecord) 2>/dev/null' >/dev/null 2>&1 || true
-        sleep 2
+        # Hard-kill the local adb so the device finalizes the recording.
+        [ -f "$REC_PID_FILE" ] && kill -9 "$(cat "$REC_PID_FILE")" 2>/dev/null || true
+        # Wait until the on-device screenrecord has actually exited and
+        # written its moov atom; pulling before then yields a truncated
+        # (unreadable) file.
+        local i
+        for i in $(seq 1 15); do
+          if ! adb -s "$dev" shell 'pidof screenrecord' 2>/dev/null | tr -d '\r' | grep -q '[0-9]'; then
+            break
+          fi
+          sleep 1
+        done
+        adb -s "$dev" shell 'pkill -9 screenrecord 2>/dev/null || true' >/dev/null 2>&1
+        sleep 1
       fi
-      if [ -f "$REC_PID_FILE" ]; then
-        kill "$(cat "$REC_PID_FILE")" >/dev/null 2>&1 || true
-        rm -f "$REC_PID_FILE"
-      fi
+      rm -f "$REC_PID_FILE"
       local dest="$HOME/Videos/omadroid-$(date +%Y%m%d-%H%M%S).mp4"
       if [ -n "$dev" ]; then
         mkdir -p "$(dirname "$dest")"
