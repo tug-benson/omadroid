@@ -644,7 +644,7 @@ Panel {
           }
           Column {
             width: (parent.width - Style.space(16)) / 3
-            Text { text: "Stockage"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
+            Text { text: "Storage"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
             Text { width: parent.width; text: root.sysStorage || "—"; color: root.fg(); font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
           }
         }
