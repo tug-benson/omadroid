@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "com.github.tug-benson.omadroid",
+  "name": "Omadroid",
+  "version": "1.0.0",
+  "author": "tug-benson",
+  "license": "MIT",
+  "description": "Affiche et contrôle un téléphone Android (scrcpy/adb) depuis la barre Omarchy. Connexion USB par défaut, WiFi optionnel.",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Omadroid",
+    "category": "Devices",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
