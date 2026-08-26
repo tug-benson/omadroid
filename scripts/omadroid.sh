@@ -12,6 +12,9 @@
 #   save [dest]                      -> copy the current preview PNG to <dest>
 #   brightness [up|down|set N]       -> adjust screen brightness (0-255)
 #   sysinfo [--serial S]             -> JSON {ram_*, cpu_load, storage_free, ssid, rssi}
+#   toggles [--serial S]             -> JSON {wifi, bt, data, airplane} (bool)
+#   toggle <wifi|bt|data|airplane>   -> flip a connectivity setting
+#   record [start|stop|status]       -> screenrecord to ~/Videos
 #   config dump                      -> key=value lines (wifi_ip, max_size, mode)
 #   config set <k> <v>               -> persist a setting
 #
@@ -26,6 +29,10 @@ STATE_FILE="${OMADROID_STATE:-/tmp/omadroid-state.json}"
 DEVICES_FILE="${OMADROID_DEVICES:-/tmp/omadroid-devices.json}"
 PREVIEW_FILE="${OMADROID_PREVIEW:-/tmp/omadroid-preview.png}"
 SYSINFO_FILE="${OMADROID_SYSINFO:-/tmp/omadroid-sysinfo.json}"
+TOGGLES_FILE="${OMADROID_TOGGLES:-/tmp/omadroid-toggles.json}"
+REC_FILE="${OMADROID_REC:-/tmp/omadroid-record.json}"
+REC_PID_FILE="/tmp/omadroid-record.pid"
+REC_REMOTE="/sdcard/omadroid_recording.mp4"
 
 # ── config helpers ──────────────────────────────────────────────────────────
 cfg_get() {
@@ -340,6 +347,104 @@ cmd_sysinfo() {
   printf '%s' "$json" > "$SYSINFO_FILE"
 }
 
+cmd_toggles() {
+  adb start-server >/dev/null 2>&1
+  local serial; serial=$(take_serial "$@")
+  local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+  if [ -z "$dev" ]; then
+    printf '{"wifi":false,"bt":false,"data":false,"airplane":false}' > "$TOGGLES_FILE"
+    return
+  fi
+  local wifi bt data airplane
+  wifi=$(adb -s "$dev" shell settings get global wifi_on 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+  bt=$(adb -s "$dev" shell settings get global bluetooth_on 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+  data=$(adb -s "$dev" shell settings get global mobile_data 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+  airplane=$(adb -s "$dev" shell settings get global airplane_mode_on 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+  [ -z "$wifi" ] && wifi=0
+  [ -z "$bt" ] && bt=0
+  [ -z "$data" ] && data=0
+  [ -z "$airplane" ] && airplane=0
+  local json="{\"wifi\":$([ "$wifi" = "1" ] && echo true || echo false),\"bt\":$([ "$bt" = "1" ] && echo true || echo false),\"data\":$([ "$data" = "1" ] && echo true || echo false),\"airplane\":$([ "$airplane" = "1" ] && echo true || echo false)}"
+  printf '%s' "$json" > "$TOGGLES_FILE"
+}
+
+cmd_toggle() {
+  local what="$1"; shift
+  adb start-server >/dev/null 2>&1
+  local serial; serial=$(take_serial "$@")
+  local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+  [ -z "$dev" ] && { printf '{"ok":false}' > "$TOGGLES_FILE"; exit 1; }
+  local s
+  case "$what" in
+    wifi)
+      s=$(adb -s "$dev" shell settings get global wifi_on 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+      if [ "$s" = "1" ]; then adb -s "$dev" shell svc wifi disable >/dev/null 2>&1
+      else adb -s "$dev" shell svc wifi enable >/dev/null 2>&1; fi ;;
+    bt)
+      s=$(adb -s "$dev" shell settings get global bluetooth_on 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+      if [ "$s" = "1" ]; then adb -s "$dev" shell svc bluetooth disable >/dev/null 2>&1
+      else adb -s "$dev" shell svc bluetooth enable >/dev/null 2>&1; fi ;;
+    data)
+      s=$(adb -s "$dev" shell settings get global mobile_data 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+      if [ "$s" = "1" ]; then adb -s "$dev" shell svc data disable >/dev/null 2>&1
+      else adb -s "$dev" shell svc data enable >/dev/null 2>&1; fi ;;
+    airplane)
+      s=$(adb -s "$dev" shell settings get global airplane_mode_on 2>/dev/null | tr -d '\r' | grep -oE '[01]' | head -1)
+      if [ "$s" = "1" ]; then
+        adb -s "$dev" shell settings put global airplane_mode_on 0 >/dev/null 2>&1
+        adb -s "$dev" shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state false >/dev/null 2>&1
+      else
+        adb -s "$dev" shell settings put global airplane_mode_on 1 >/dev/null 2>&1
+        adb -s "$dev" shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null 2>&1
+      fi ;;
+    *) printf '{"ok":false,"error":"unknown toggle"}' > "$TOGGLES_FILE"; exit 1 ;;
+  esac
+  cmd_toggles --serial "$dev"
+}
+
+cmd_record() {
+  local sub="${1:-status}"; shift 2>/dev/null || true
+  case "$sub" in
+    start)
+      local serial; serial=$(take_serial "$@")
+      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+      [ -z "$dev" ] && { printf '{"recording":false,"error":"no device"}' > "$REC_FILE"; exit 1; }
+      [ -f "$REC_PID_FILE" ] && { printf '{"recording":true,"error":"already recording"}' > "$REC_FILE"; exit 1; }
+      adb -s "$dev" shell rm -f "$REC_REMOTE" >/dev/null 2>&1
+      setsid adb -s "$dev" shell screenrecord "$REC_REMOTE" >/dev/null 2>&1 &
+      echo $! > "$REC_PID_FILE"
+      printf '{"recording":true}' > "$REC_FILE"
+      ;;
+    stop)
+      if [ -f "$REC_PID_FILE" ]; then
+        local pid; pid=$(cat "$REC_PID_FILE"); rm -f "$REC_PID_FILE"
+        kill -INT "$pid" >/dev/null 2>&1 || true
+        sleep 2
+      fi
+      local serial; serial=$(take_serial "$@")
+      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+      local dest="$HOME/Videos/omadroid-$(date +%Y%m%d-%H%M%S).mp4"
+      if [ -n "$dev" ]; then
+        mkdir -p "$(dirname "$dest")"
+        adb -s "$dev" pull "$REC_REMOTE" "$dest" >/dev/null 2>&1 || true
+        adb -s "$dev" shell rm -f "$REC_REMOTE" >/dev/null 2>&1 || true
+      fi
+      if command -v notify-send >/dev/null 2>&1; then
+        notify-send "Omadroid" "Recording saved to $dest"
+      fi
+      printf '{"recording":false,"path":"%s"}' "$dest" > "$REC_FILE"
+      ;;
+    status)
+      if [ -f "$REC_PID_FILE" ] && kill -0 "$(cat "$REC_PID_FILE")" 2>/dev/null; then
+        printf '{"recording":true}' > "$REC_FILE"
+      else
+        rm -f "$REC_PID_FILE"
+        printf '{"recording":false}' > "$REC_FILE"
+      fi
+      ;;
+  esac
+}
+
 case "${1:-status}" in
   status)     shift; cmd_status "$@" ;;
   connect)    shift; cmd_connect "$@" ;;
@@ -353,6 +458,9 @@ case "${1:-status}" in
   save)       shift; cmd_save "$@" ;;
   brightness) shift; cmd_brightness "$@" ;;
   sysinfo)    shift; cmd_sysinfo "$@" ;;
+  toggles)    shift; cmd_toggles "$@" ;;
+  toggle)     shift; cmd_toggle "$@" ;;
+  record)     shift; cmd_record "$@" ;;
   config)     shift; cmd_config "$@" ;;
   *)          echo "{\"error\":\"unknown command\"}"; exit 1 ;;
 esac

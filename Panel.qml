@@ -34,6 +34,11 @@ Panel {
   property string sysStorage: ""
   property string wifiSsid: ""
   property string wifiRssi: ""
+  property bool toggleWifi: false
+  property bool toggleBt: false
+  property bool toggleData: false
+  property bool toggleAirplane: false
+  property bool recording: false
   readonly property string iconFont: (root.bar && root.bar.fontFamily) ? root.bar.fontFamily : "CaskaydiaMono Nerd Font"
 
   function localPath(url) {
@@ -52,6 +57,8 @@ Panel {
     if (root.mode === "wifi" && root.wifiIp && root.connected === "none") root.doConnect()
     root.refreshStatus()
     root.refreshSysinfo()
+    root.refreshToggles()
+    root.refreshRecording()
   }
 
   function close() {
@@ -166,6 +173,63 @@ Panel {
     } catch (e) {}
   }
 
+  function refreshToggles() {
+    if (root.connected === "none" && !root.selectedSerial) return
+    if (togglesProc.running) return
+    var args = [root.scriptPath, "toggles"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    togglesProc.command = args
+    togglesProc.running = true
+  }
+
+  function applyToggles(text) {
+    if (!text) return
+    try {
+      var s = JSON.parse(text.trim())
+      root.toggleWifi = !!s.wifi
+      root.toggleBt = !!s.bt
+      root.toggleData = !!s.data
+      root.toggleAirplane = !!s.airplane
+    } catch (e) {}
+  }
+
+  function doToggle(name) {
+    if (root.connected === "none" && !root.selectedSerial) return
+    var args = [root.scriptPath, "toggle", name]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    togglesProc.command = args
+    togglesProc.running = true
+  }
+
+  function refreshRecording() {
+    if (recordProc.running) return
+    recordProc.command = [root.scriptPath, "record", "status"]
+    recordProc.running = true
+  }
+
+  function startRecord() {
+    if (root.connected === "none" && !root.selectedSerial) return
+    var args = [root.scriptPath, "record", "start"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    recordProc.command = args
+    recordProc.running = true
+  }
+
+  function stopRecord() {
+    var args = [root.scriptPath, "record", "stop"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    recordProc.command = args
+    recordProc.running = true
+  }
+
+  function applyRecording(text) {
+    if (!text) return
+    try {
+      var s = JSON.parse(text.trim())
+      root.recording = !!s.recording
+    } catch (e) {}
+  }
+
   function brightness(dir) {
     if (root.connected === "none" && !root.selectedSerial) return
     var args = [root.scriptPath, "brightness", dir]
@@ -205,6 +269,7 @@ Panel {
     root.selectedSerial = serial
     root.refreshStatus()
     root.refreshPreview()
+    root.refreshToggles()
   }
 
   function loadConfig() {
@@ -248,6 +313,7 @@ Panel {
     root.saveConfig()
     root.refreshStatus()
     root.refreshPreview()
+    root.refreshToggles()
   }
 
   function syncModeButtons() {
@@ -347,6 +413,16 @@ Panel {
     onExited: sysinfoFile.reload()
   }
 
+  Process {
+    id: togglesProc
+    onExited: togglesFile.reload()
+  }
+
+  Process {
+    id: recordProc
+    onExited: recordFile.reload()
+  }
+
   FileView {
     id: stateFile
     path: "/tmp/omadroid-state.json"
@@ -383,6 +459,24 @@ Panel {
     onLoadFailed: root.applySysinfo("")
   }
 
+  FileView {
+    id: togglesFile
+    path: "/tmp/omadroid-toggles.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.applyToggles(text())
+    onLoadFailed: root.applyToggles("")
+  }
+
+  FileView {
+    id: recordFile
+    path: "/tmp/omadroid-record.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.applyRecording(text())
+    onLoadFailed: root.applyRecording("")
+  }
+
   // ── timers ──────────────────────────────────────────────────────────────────
   Timer {
     id: previewTimer
@@ -398,7 +492,7 @@ Panel {
     interval: 3000
     repeat: true
     running: root.opened
-    onTriggered: { root.refreshStatus(); root.refreshDevices() }
+    onTriggered: { root.refreshStatus(); root.refreshDevices(); root.refreshToggles() }
   }
 
   Timer {
@@ -617,6 +711,52 @@ Panel {
           PanelButton { label: "Open screen"; fg: root.fg(); onClicked: root.doOpen() }
         }
 
+        // Quick connectivity toggles (grouped so the controls stay coherent)
+        Column {
+          width: parent.width
+          spacing: Style.space(6)
+          visible: root.connected !== "none" || root.selectedSerial !== ""
+
+          PanelSectionHeader {
+            text: "QUICK TOGGLES"
+            foreground: root.fg()
+            fontFamily: Style.font.family
+          }
+
+          Toggle {
+            width: parent.width
+            label: "WiFi"
+            checked: root.toggleWifi
+            foreground: root.fg()
+            fontFamily: Style.font.family
+            onClicked: root.doToggle("wifi")
+          }
+          Toggle {
+            width: parent.width
+            label: "Bluetooth"
+            checked: root.toggleBt
+            foreground: root.fg()
+            fontFamily: Style.font.family
+            onClicked: root.doToggle("bt")
+          }
+          Toggle {
+            width: parent.width
+            label: "Mobile data"
+            checked: root.toggleData
+            foreground: root.fg()
+            fontFamily: Style.font.family
+            onClicked: root.doToggle("data")
+          }
+          Toggle {
+            width: parent.width
+            label: "Airplane mode"
+            checked: root.toggleAirplane
+            foreground: root.fg()
+            fontFamily: Style.font.family
+            onClicked: root.doToggle("airplane")
+          }
+        }
+
         // Quick device controls
         Row {
           spacing: Style.space(6)
@@ -626,6 +766,35 @@ Panel {
           PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
           PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
           PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+        }
+
+        // Screen recording (start / stop -> saved to ~/Videos)
+        Row {
+          spacing: Style.space(8)
+          width: parent.width
+          Rectangle {
+            width: Style.space(12)
+            height: Style.space(12)
+            radius: width / 2
+            color: root.recording ? "#e5484d" : "transparent"
+            border.color: root.recording ? "#e5484d" : Util.alpha(root.fg(), 0.3)
+            border.width: 1
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          PanelButton {
+            label: root.recording ? "Stop" : "Record"
+            active: root.recording
+            fg: root.fg()
+            onClicked: root.recording ? root.stopRecord() : root.startRecord()
+          }
+          Text {
+            visible: root.recording
+            text: "Recording…"
+            color: root.fg()
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            anchors.verticalCenter: parent.verticalCenter
+          }
         }
 
         // Device system stats (RAM / CPU / storage)
