@@ -125,6 +125,9 @@ that starts Omarchy to tune it.
 - **Live preview** with **Rotate** (⟳) and **Expand** (▣) controls.
 - **Direct touch control**: tap and swipe directly on the preview to drive the
   phone (maps to `adb input tap` / `swipe`, accounting for preview rotation).
+- **Save snapshot**: the 💾 button copies the current preview to
+  `~/Pictures/omadroid-<timestamp>.png` (handy for grabbing a clean wallpaper
+  shot without the apps).
 - **Battery level** and a colored connection indicator in the status line.
 
 ## ⚙️ Configuration

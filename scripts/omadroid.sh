@@ -9,6 +9,7 @@
 #   preview <outfile> [--serial S]   -> write a PNG screenshot to <outfile>
 #   open [--serial S|--wifi --ip IP] -> launch the interactive scrcpy window
 #   devices                          -> JSON array of {serial, transport, model}
+#   save [dest]                      -> copy the current preview PNG to <dest>
 #   config dump                      -> key=value lines (wifi_ip, max_size, mode)
 #   config set <k> <v>               -> persist a setting
 #
@@ -21,6 +22,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy"
 CONFIG_FILE="$CONFIG_DIR/omadroid.conf"
 STATE_FILE="${OMADROID_STATE:-/tmp/omadroid-state.json}"
 DEVICES_FILE="${OMADROID_DEVICES:-/tmp/omadroid-devices.json}"
+PREVIEW_FILE="${OMADROID_PREVIEW:-/tmp/omadroid-preview.png}"
 
 # ── config helpers ──────────────────────────────────────────────────────────
 cfg_get() {
@@ -152,7 +154,7 @@ cmd_preview() {
   local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
   [ -z "$dev" ] && { echo "{\"ok\":false}"; exit 1; }
   local tmp="${out}.new"
-  if ! adb -s "$dev" exec-out screencap -p > "$tmp" 2>/dev/null; then
+  if ! timeout 6 adb -s "$dev" exec-out screencap -p > "$tmp" 2>/dev/null; then
     rm -f "$tmp"
     echo "{\"ok\":false}"; exit 1
   fi
@@ -182,6 +184,14 @@ cmd_swipe() {
   [ -z "$dev" ] && { echo "{\"ok\":false}"; exit 1; }
   adb -s "$dev" shell input swipe "$x1" "$y1" "$x2" "$y2" "$dur" 2>/dev/null
   echo "{\"ok\":true}"
+}
+
+cmd_save() {
+  local dest="${1:-$HOME/Pictures/omadroid-$(date +%Y%m%d-%H%M%S).png}"
+  [ -f "$PREVIEW_FILE" ] || { echo "{\"ok\":false,\"error\":\"no preview yet\"}"; exit 1; }
+  mkdir -p "$(dirname "$dest")"
+  cp "$PREVIEW_FILE" "$dest"
+  echo "{\"ok\":true,\"path\":\"$dest\"}"
 }
 
 cmd_open() {
@@ -284,6 +294,7 @@ case "${1:-status}" in
   devices)    cmd_devices ;;
   input)      shift; cmd_input "$@" ;;
   swipe)      shift; cmd_swipe "$@" ;;
+  save)       shift; cmd_save "$@" ;;
   config)     shift; cmd_config "$@" ;;
   *)          echo "{\"error\":\"unknown command\"}"; exit 1 ;;
 esac

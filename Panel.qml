@@ -211,6 +211,11 @@ Panel {
     Quickshell.execDetached(args)
   }
 
+  function savePreview() {
+    if (root.connected === "none" && !root.selectedSerial) return
+    Quickshell.execDetached([root.scriptPath, "save"])
+  }
+
   function sendSwipe(x1, y1, x2, y2, dur) {
     if (root.connected === "none" && !root.selectedSerial) return
     var args = [root.scriptPath, "swipe", "" + x1, "" + y1, "" + x2, "" + y2, "" + dur]
@@ -270,7 +275,8 @@ Panel {
       } else if (exitCode === 3) {
         // unchanged -> keep the current image (no flicker)
       } else {
-        root.previewSource = ""
+        // transient capture failure -> keep the previous frame instead of
+        // blanking (a momentary adb hiccup shouldn't clear the preview)
       }
     }
   }
@@ -583,6 +589,7 @@ Panel {
             spacing: Style.space(6)
             PanelButton { label: "⟳"; fg: root.fg(); onClicked: root.rotatePreview() }
             PanelButton { label: root.previewExpanded ? "▢" : "▣"; fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
+            PanelButton { label: "💾"; fg: root.fg(); onClicked: root.savePreview() }
           }
         }
 
