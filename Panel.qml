@@ -185,8 +185,17 @@ Panel {
       root.devices.clear()
       for (var i = 0; i < arr.length; i++)
         root.devices.append({ serial: arr[i].serial, transport: arr[i].transport, name: arr[i].name || "" })
-      if (!root.selectedSerial && root.devices.count > 0)
-        root.selectDevice(root.devices.get(0).serial)
+      if (root.devices.count > 0) {
+        var found = false
+        if (root.selectedSerial) {
+          for (var j = 0; j < root.devices.count; j++) {
+            if (root.devices.get(j).serial === root.selectedSerial) { found = true; break }
+          }
+        }
+        if (!found) root.selectDevice(root.devices.get(0).serial)
+      } else {
+        root.selectedSerial = ""
+      }
     } catch (e) {
       root.devices.clear()
     }
@@ -224,8 +233,21 @@ Panel {
 
   function setMode(m) {
     root.mode = m
+    var wantWifi = (m === "wifi")
+    // keep the current selection only if its transport matches the new mode
+    var keep = root.selectedSerial && ((root.selectedSerial.indexOf(":") >= 0) === wantWifi)
+    if (!keep) {
+      var chosen = ""
+      for (var i = 0; i < root.devices.count; i++) {
+        var d = root.devices.get(i)
+        if ((d.serial.indexOf(":") >= 0) === wantWifi) { chosen = d.serial; break }
+      }
+      root.selectedSerial = chosen
+    }
     syncModeButtons()
     root.saveConfig()
+    root.refreshStatus()
+    root.refreshPreview()
   }
 
   function syncModeButtons() {
@@ -546,22 +568,21 @@ Panel {
           }
         }
 
-        // Device picker + Resolution (separator between them when several devices)
+        // Device picker + Resolution (always shows the connected device(s), separator before resolution)
         Row {
           spacing: Style.space(8)
           width: parent.width
           Repeater {
-            model: root.devices.count > 1 ? root.devices : []
+            model: root.devices
             PanelButton {
-              label: (model.transport === "wifi" ? "\uDB81\uDDA9 " : "\uDB81\uDD53 ") + (model.name || model.serial)
-              iconFont: root.iconFont
+              label: (model.transport === "wifi" ? "WiFi" : "USB") + " : " + (model.name || model.serial)
               fg: root.fg()
               active: root.selectedSerial === model.serial
               onClicked: root.selectDevice(model.serial)
             }
           }
           Rectangle {
-            visible: root.devices.count > 1
+            visible: root.devices.count > 0
             width: 1
             height: Style.space(24)
             color: Util.alpha(root.fg(), 0.3)
