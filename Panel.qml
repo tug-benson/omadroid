@@ -15,7 +15,7 @@ Panel {
   // ── state ────────────────────────────────────────────────────────────────
   property string mode: "usb"            // "usb" | "wifi"
   property string wifiIp: ""
-  property int maxSize: 420
+  property int maxSize: 720
   property string connected: "none"      // "none" | "usb" | "wifi"
   property string statusText: "Non connecté"
   property string previewSource: ""
@@ -85,10 +85,10 @@ Panel {
 
   function doOpen() {
     if (root.connected === "none") { root.statusText = "Connect the phone first"; return }
-    var args = ["scrcpy", "--max-size", String(root.maxSize), "--window-title", "Omadroid"]
+    var args = [root.scriptPath, "open", "--max-size", String(root.maxSize)]
     if (root.mode === "wifi") {
       if (!root.wifiIp) { root.statusText = "WiFi IP required"; return }
-      args.push("--tcpip=" + root.wifiIp + ":5555")
+      args.push("--wifi", "--ip", root.wifiIp)
     }
     Quickshell.execDetached(args)
   }
@@ -231,7 +231,7 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    contentWidth: panel.fittedContentWidth(Style.space(300))
+    contentWidth: panel.fittedContentWidth(Style.space(440))
     contentHeight: panel.fittedContentHeight(content.implicitHeight)
 
     PanelKeyCatcher {
@@ -365,7 +365,7 @@ Panel {
         // Live preview (bottom of the panel)
         Rectangle {
           width: parent.width
-          height: Style.space(240)
+          height: Style.space(440)
           color: Util.alpha(root.fg(), 0.06)
           radius: Style.cornerRadius
           border.color: Util.alpha(root.fg(), 0.18)

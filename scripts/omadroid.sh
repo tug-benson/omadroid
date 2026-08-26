@@ -122,6 +122,33 @@ cmd_disconnect() {
   echo "{\"ok\":true}"
 }
 
+cmd_open() {
+  local mode="usb" ip="" max="720"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --wifi) mode="wifi" ;;
+      --ip)   ip="$2"; shift ;;
+      --max-size) max="$2"; shift ;;
+    esac
+    shift
+  done
+  [ -z "$ip" ] && ip=$(cfg_get wifi_ip "")
+  [ -z "$max" ] && max=$(cfg_get max_size 720)
+
+  local args=("--max-size" "$max" "--video-bit-rate" "12M" "--max-fps" "60" "--window-title" "Omadroid")
+  if [ "$mode" = "wifi" ]; then
+    [ -z "$ip" ] && { echo "{\"error\":\"WiFi IP required\"}"; exit 1; }
+    args+=("--tcpip=${ip}:${ADB_PORT}")
+  fi
+  # Optional extra scrcpy flags from the environment.
+  if [ -n "${SCRCPY_OPTS:-}" ]; then
+    # shellcheck disable=SC2206
+    args+=($SCRCPY_OPTS)
+  fi
+  setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+  echo "{\"launched\":true}"
+}
+
 cmd_preview() {
   local out="$1"
   adb start-server >/dev/null 2>&1
@@ -141,7 +168,7 @@ cmd_config() {
       mkdir -p "$CONFIG_DIR"
       {
         echo "wifi_ip=$(cfg_get wifi_ip "")"
-        echo "max_size=$(cfg_get max_size 420)"
+        echo "max_size=$(cfg_get max_size 720)"
         echo "mode=$(cfg_get mode usb)"
       } > "$CONFIG_FILE"
       cat "$CONFIG_FILE"
@@ -158,6 +185,7 @@ case "${1:-status}" in
   connect)    shift; cmd_connect "$@" ;;
   wake)       cmd_wake ;;
   disconnect) cmd_disconnect ;;
+  open)       shift; cmd_open "$@" ;;
   preview)    cmd_preview "$2" ;;
   config)     shift; cmd_config "$@" ;;
   *)          echo "{\"error\":\"unknown command\"}"; exit 1 ;;
