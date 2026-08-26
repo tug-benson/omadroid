@@ -35,8 +35,12 @@ WiFi IP and mode are remembered between sessions.
 | `scrcpy` | `sudo pacman -S scrcpy` |
 
 **On the phone:**
-- Enable **USB debugging** (Settings → Developer options)
-- Accept the ADB authorization prompt on first USB connection
+- Enable **Developer options** (Settings → About phone → tap *Build number* 7 times).
+- Enable **USB debugging** (Settings → Developer options). This is required for
+  ADB/scrcpy to talk to the phone at all — nothing works without it.
+- On Android 11+, also enable **Wireless debugging** if you plan to use WiFi mode
+  without the USB bootstrap.
+- Accept the ADB authorization prompt on first USB connection.
 
 **WiFi mode (optional — less secure than USB):**
 - The phone and the computer must be on the **same Wi-Fi network**.
@@ -117,7 +121,7 @@ that starts Omarchy to tune it.
 - **Auto-connect over WiFi** when you open the panel and an IP is known.
 - **Multiple devices**: if several phones are detected, a device picker lets
   you choose which one to mirror.
-- **Resolution dropdown** for the scrcpy window: Original / 1080p / 720p / 540p / 480p.
+- **Resolution toggle** for the scrcpy window: **1080p** / **720p**.
 - **Live preview** with **Rotate** (⟳) and **Expand** (▣) controls.
 - **Direct touch control**: tap and swipe directly on the preview to drive the
   phone (maps to `adb input tap` / `swipe`, accounting for preview rotation).
@@ -132,7 +136,7 @@ Settings (WiFi IP, max size, mode) are persisted to
 |---------|-------------|---------|
 | Mode | USB (default) or WiFi | `usb` |
 | WiFi IP | Phone address in WiFi mode | _(empty)_ |
-| Size | `--max-size` of the scrcpy window | `420` |
+| Resolution | `--max-size` of the scrcpy window (`1080` or `720`) | `1080` |
 
 ---
 
