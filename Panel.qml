@@ -22,6 +22,10 @@ Panel {
   property string previewSource: ""
   property int previewToken: 0
   readonly property string previewPath: "/tmp/omadroid-preview.png"
+  property string selectedSerial: ""     // empty = auto (first device)
+  property ListModel devices: ListModel {}
+  property int previewRotation: 0
+  property bool previewExpanded: false
 
   function localPath(url) {
     var s = String(url)
@@ -30,10 +34,13 @@ Panel {
   }
   property string scriptPath: localPath(Qt.resolvedUrl("scripts/omadroid.sh"))
   readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/omarchy/omadroid.conf"
+  readonly property string devicesPath: "/tmp/omadroid-devices.json"
 
   function open() {
     root.controller.show()
     root.loadConfig()
+    root.refreshDevices()
+    if (root.mode === "wifi" && root.wifiIp && root.connected === "none") root.doConnect()
     root.refreshStatus()
   }
 
@@ -52,6 +59,9 @@ Panel {
   // ── actions ────────────────────────────────────────────────────────────────
   function refreshStatus() {
     if (statusProc.running) return
+    var args = [root.scriptPath, "status"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    statusProc.command = args
     statusProc.running = true
   }
 
@@ -88,9 +98,11 @@ Panel {
   }
 
   function doOpen() {
-    if (root.connected === "none") { root.statusText = "Connect the phone first"; return }
+    if (root.connected === "none" && !root.selectedSerial) { root.statusText = "Connect the phone first"; return }
     var args = [root.scriptPath, "open", "--max-size", String(root.maxSize)]
-    if (root.mode === "wifi") {
+    if (root.selectedSerial) {
+      args.push("--serial", root.selectedSerial)
+    } else if (root.mode === "wifi") {
       if (!root.wifiIp) { root.statusText = "WiFi IP required"; return }
       args.push("--wifi", "--ip", root.wifiIp)
     }
@@ -98,8 +110,10 @@ Panel {
   }
 
   function doWake() {
-    if (root.connected === "none") return
-    Quickshell.execDetached([root.scriptPath, "wake"])
+    if (root.connected === "none" && !root.selectedSerial) return
+    var args = [root.scriptPath, "wake"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    Quickshell.execDetached(args)
     wakeTimer.restart()
   }
 
@@ -107,14 +121,43 @@ Panel {
     Quickshell.execDetached([root.scriptPath, "disconnect"])
     root.connected = "none"
     root.statusText = "Not connected"
+    root.battery = ""
     root.previewSource = ""
     root.refreshStatus()
   }
 
   function refreshPreview() {
-    if (root.connected === "none") { root.previewSource = ""; return }
+    if (root.connected === "none" && !root.selectedSerial) { root.previewSource = ""; return }
     if (previewProc.running) return
+    var args = [root.scriptPath, "preview", root.previewPath]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    previewProc.command = args
     previewProc.running = true
+  }
+
+  function refreshDevices() {
+    if (devicesProc.running) return
+    devicesProc.running = true
+  }
+
+  function parseDevices(text) {
+    if (!text) { root.devices.clear(); return }
+    try {
+      var arr = JSON.parse(text)
+      root.devices.clear()
+      for (var i = 0; i < arr.length; i++)
+        root.devices.append({ serial: arr[i].serial, transport: arr[i].transport, name: arr[i].name || "" })
+      if (!root.selectedSerial && root.devices.count > 0)
+        root.selectDevice(root.devices.get(0).serial)
+    } catch (e) {
+      root.devices.clear()
+    }
+  }
+
+  function selectDevice(serial) {
+    root.selectedSerial = serial
+    root.refreshStatus()
+    root.refreshPreview()
   }
 
   function loadConfig() {
@@ -130,7 +173,7 @@ Panel {
       if (kv.length < 2) continue
       var k = kv[0].trim(), v = kv[1].trim()
       if (k === "wifi_ip") { root.wifiIp = v; if (ipInput) ipInput.text = v }
-      else if (k === "max_size") { root.maxSize = parseInt(v) || 420; if (sizeInput) sizeInput.text = String(root.maxSize) }
+      else if (k === "max_size") { root.maxSize = parseInt(v) || 1080; if (sizeInput) sizeInput.text = String(root.maxSize) }
       else if (k === "mode") { root.mode = (v === "wifi") ? "wifi" : "usb"; syncModeButtons() }
     }
   }
@@ -152,16 +195,18 @@ Panel {
     wifiBtn.active = (root.mode === "wifi")
   }
 
+  function rotatePreview() {
+    root.previewRotation = (root.previewRotation + 90) % 360
+  }
+
   // ── processes (triggers; output is read from state files via FileView) ─────
   Process {
     id: statusProc
-    command: [root.scriptPath, "status"]
     onExited: stateFile.reload()
   }
 
   Process {
     id: connectProc
-    command: [root.scriptPath, "connect"]
     onExited: stateFile.reload()
   }
 
@@ -169,6 +214,24 @@ Panel {
     id: cfgProc
     command: [root.scriptPath, "config", "dump"]
     onExited: configFile.reload()
+  }
+
+  Process {
+    id: previewProc
+    onExited: function(exitCode) {
+      if (exitCode === 0) {
+        root.previewToken += 1
+        root.previewSource = Util.fileUrl(root.previewPath) + "?" + root.previewToken
+      } else {
+        root.previewSource = ""
+      }
+    }
+  }
+
+  Process {
+    id: devicesProc
+    command: [root.scriptPath, "devices"]
+    onExited: devicesFile.reload()
   }
 
   FileView {
@@ -189,17 +252,13 @@ Panel {
     onLoadFailed: root.parseConfig("")
   }
 
-  Process {
-    id: previewProc
-    command: [root.scriptPath, "preview", root.previewPath]
-    onExited: function(exitCode) {
-      if (exitCode === 0) {
-        root.previewToken += 1
-        root.previewSource = Util.fileUrl(root.previewPath) + "?" + root.previewToken
-      } else {
-        root.previewSource = ""
-      }
-    }
+  FileView {
+    id: devicesFile
+    path: root.devicesPath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.parseDevices(text())
+    onLoadFailed: root.parseDevices("[]")
   }
 
   // ── timers ──────────────────────────────────────────────────────────────────
@@ -217,7 +276,7 @@ Panel {
     interval: 3000
     repeat: true
     running: root.opened
-    onTriggered: root.refreshStatus()
+    onTriggered: { root.refreshStatus(); root.refreshDevices() }
   }
 
   Timer {
@@ -327,8 +386,8 @@ Panel {
             font.family: Style.font.family
             font.pixelSize: Style.font.body
             text: String(root.maxSize)
-            validator: IntValidator { bottom: 120; top: 1200 }
-            onTextChanged: root.maxSize = parseInt(text) || 420
+            validator: IntValidator { bottom: 120; top: 1600 }
+            onTextChanged: root.maxSize = parseInt(text) || 1080
             onAccepted: root.saveConfig()
             Rectangle {
               anchors.fill: parent
@@ -370,6 +429,31 @@ Panel {
           }
         }
 
+        // Device picker (only when several devices are detected)
+        Column {
+          visible: root.devices.count > 1
+          width: parent.width
+          spacing: Style.space(6)
+          Text {
+            text: "Device"
+            color: Util.alpha(root.fg(), 0.6)
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+          }
+          Row {
+            spacing: Style.space(6)
+            Repeater {
+              model: root.devices
+              PanelButton {
+                label: (model.transport === "wifi" ? "📶 " : "🔌 ") + (model.name || model.serial)
+                fg: root.fg()
+                active: root.selectedSerial === model.serial
+                onClicked: root.selectDevice(model.serial)
+              }
+            }
+          }
+        }
+
         // Action buttons
         Row {
           spacing: Style.space(8)
@@ -381,7 +465,7 @@ Panel {
         // Live preview (bottom of the panel)
         Rectangle {
           width: parent.width
-          height: Style.space(440)
+          height: root.previewExpanded ? Style.space(680) : Style.space(440)
           color: Util.alpha(root.fg(), 0.06)
           radius: Style.cornerRadius
           border.color: Util.alpha(root.fg(), 0.18)
@@ -390,10 +474,11 @@ Panel {
 
           Image {
             anchors.centerIn: parent
+            rotation: root.previewRotation
+            height: (root.previewRotation % 180 === 0) ? parent.height - Style.space(12) : parent.width - Style.space(12)
+            width: (root.previewRotation % 180 === 0) ? parent.width - Style.space(12) : parent.height - Style.space(12)
             source: root.previewSource
             fillMode: Image.PreserveAspectFit
-            height: parent.height - Style.space(12)
-            width: parent.width - Style.space(12)
             asynchronous: true
             smooth: true
             visible: root.previewSource !== ""
@@ -408,6 +493,16 @@ Panel {
             font.pixelSize: Style.font.caption
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
+          }
+
+          // Preview controls (top-right)
+          Row {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: Style.space(8)
+            spacing: Style.space(6)
+            PanelButton { label: "⟳"; fg: root.fg(); onClicked: root.rotatePreview() }
+            PanelButton { label: root.previewExpanded ? "▢" : "▣"; fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
           }
         }
 
