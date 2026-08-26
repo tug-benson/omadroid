@@ -581,8 +581,8 @@ Panel {
             }
           }
 
-          // Preview controls (top-right)
-          Row {
+          // Preview controls (top-right, stacked vertically)
+          Column {
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: Style.space(8)
