@@ -711,7 +711,7 @@ Panel {
           PanelButton { label: "Open screen"; fg: root.fg(); onClicked: root.doOpen() }
         }
 
-        // Quick connectivity toggles (grouped so the controls stay coherent)
+        // Quick connectivity toggles (grouped 2x2 so they stay compact)
         Column {
           width: parent.width
           spacing: Style.space(6)
@@ -723,37 +723,51 @@ Panel {
             fontFamily: Style.font.family
           }
 
-          Toggle {
+          Row {
             width: parent.width
-            label: "WiFi"
-            checked: root.toggleWifi
-            foreground: root.fg()
-            fontFamily: Style.font.family
-            onClicked: root.doToggle("wifi")
-          }
-          Toggle {
-            width: parent.width
-            label: "Bluetooth"
-            checked: root.toggleBt
-            foreground: root.fg()
-            fontFamily: Style.font.family
-            onClicked: root.doToggle("bt")
-          }
-          Toggle {
-            width: parent.width
-            label: "Mobile data"
-            checked: root.toggleData
-            foreground: root.fg()
-            fontFamily: Style.font.family
-            onClicked: root.doToggle("data")
-          }
-          Toggle {
-            width: parent.width
-            label: "Airplane mode"
-            checked: root.toggleAirplane
-            foreground: root.fg()
-            fontFamily: Style.font.family
-            onClicked: root.doToggle("airplane")
+            spacing: Style.space(8)
+
+            Column {
+              width: (parent.width - parent.spacing) / 2
+              spacing: Style.space(6)
+              Toggle {
+                width: parent.width
+                label: "WiFi"
+                checked: root.toggleWifi
+                foreground: root.fg()
+                fontFamily: Style.font.family
+                onClicked: root.doToggle("wifi")
+              }
+              Toggle {
+                width: parent.width
+                label: "Bluetooth"
+                checked: root.toggleBt
+                foreground: root.fg()
+                fontFamily: Style.font.family
+                onClicked: root.doToggle("bt")
+              }
+            }
+
+            Column {
+              width: (parent.width - parent.spacing) / 2
+              spacing: Style.space(6)
+              Toggle {
+                width: parent.width
+                label: "Mobile data"
+                checked: root.toggleData
+                foreground: root.fg()
+                fontFamily: Style.font.family
+                onClicked: root.doToggle("data")
+              }
+              Toggle {
+                width: parent.width
+                label: "Airplane mode"
+                checked: root.toggleAirplane
+                foreground: root.fg()
+                fontFamily: Style.font.family
+                onClicked: root.doToggle("airplane")
+              }
+            }
           }
         }
 
@@ -766,12 +780,11 @@ Panel {
           PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
           PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
           PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: Style.space(46); height: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
-        }
-
-        // Screen recording (start / stop -> saved to ~/Videos)
-        Row {
-          spacing: Style.space(8)
-          width: parent.width
+          Rectangle {
+            width: 1
+            height: Style.space(24)
+            color: Util.alpha(root.fg(), 0.3)
+          }
           Rectangle {
             width: Style.space(12)
             height: Style.space(12)
@@ -786,14 +799,6 @@ Panel {
             active: root.recording
             fg: root.fg()
             onClicked: root.recording ? root.stopRecord() : root.startRecord()
-          }
-          Text {
-            visible: root.recording
-            text: "Recording…"
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            anchors.verticalCenter: parent.verticalCenter
           }
         }
 
