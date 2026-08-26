@@ -459,9 +459,8 @@ Panel {
             anchors.top: parent.top
             anchors.topMargin: Style.space(38)
             width: parent.width
-            color: Color.background
-            opacity: 1
-            border.color: Util.alpha(root.fg(), 0.25)
+            color: "#1e1e2e"
+            border.color: Util.alpha(root.fg(), 0.35)
             border.width: 1
             radius: Style.cornerRadius
             z: 101
