@@ -17,6 +17,8 @@ WiFi IP and mode are remembered between sessions.
 > Unlocking the screen is done physically (fingerprint / PIN) on the device.
 > The **Wake** button turns the screen on so the preview shows up.
 
+![Omadroid panel](preview.png)
+
 ---
 
 ## 🔒 Security

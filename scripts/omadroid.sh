@@ -191,6 +191,9 @@ cmd_save() {
   [ -f "$PREVIEW_FILE" ] || { echo "{\"ok\":false,\"error\":\"no preview yet\"}"; exit 1; }
   mkdir -p "$(dirname "$dest")"
   cp "$PREVIEW_FILE" "$dest"
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "Omadroid" "Screenshot saved to $dest"
+  fi
   echo "{\"ok\":true,\"path\":\"$dest\"}"
 }
 
