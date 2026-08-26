@@ -18,6 +18,7 @@ set -u
 ADB_PORT="${ADB_PORT:-5555}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy"
 CONFIG_FILE="$CONFIG_DIR/omadroid.conf"
+STATE_FILE="${OMADROID_STATE:-/tmp/omadroid-state.json}"
 
 # ── config helpers ──────────────────────────────────────────────────────────
 cfg_get() {
@@ -50,20 +51,25 @@ any_device() {
   echo ""
 }
 
-emit_status() {
+emit_json() {
+  echo "$1"
+  printf '%s' "$1" > "$STATE_FILE"
+}
+
+emit_status_json() {
   local connected="$1" ip="$2" model=""
   [ "$connected" = "wifi" ] && model=$(adb -s "$ip:$ADB_PORT" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
   [ "$connected" = "usb" ]  && model=$(adb -s "$ip" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
-  echo "{\"connected\":\"$connected\",\"ip\":\"$ip\",\"model\":\"$model\"}"
+  emit_json "{\"connected\":\"$connected\",\"ip\":\"$ip\",\"model\":\"$model\"}"
 }
 
 cmd_status() {
   adb start-server >/dev/null 2>&1
   local u w
   u=$(usb_device); w=$(wifi_device)
-  if [ -n "$w" ]; then emit_status "wifi" "${w%:*}"; return; fi
-  if [ -n "$u" ]; then emit_status "usb"  "$u"; return; fi
-  echo "{\"connected\":\"none\",\"ip\":\"\",\"model\":\"\"}"
+  if [ -n "$w" ]; then emit_status_json "wifi" "${w%:*}"; return; fi
+  if [ -n "$u" ]; then emit_status_json "usb"  "$u"; return; fi
+  emit_json '{"connected":"none","ip":"","model":""}'
 }
 
 cmd_connect() {
@@ -79,7 +85,7 @@ cmd_connect() {
 
   if [ "$mode" = "wifi" ]; then
     [ -z "$ip" ] && ip=$(cfg_get wifi_ip "")
-    [ -z "$ip" ] && { echo "{\"connected\":\"none\",\"error\":\"WiFi IP required\"}"; return; }
+    [ -z "$ip" ] && { emit_json '{"connected":"none","error":"WiFi IP required"}'; return; }
     cfg_set wifi_ip "$ip"
     if adb connect "${ip}:${ADB_PORT}" 2>&1 | grep -qi connected; then
       cmd_status; return
@@ -100,7 +106,7 @@ cmd_connect() {
   # If WiFi is already up, report it instead of failing.
   local w; w=$(wifi_device)
   if [ -n "$w" ]; then cmd_status; return; fi
-  echo "{\"connected\":\"none\",\"error\":\"No USB device detected\"}"
+  emit_json '{"connected":"none","error":"No USB device detected"}'
 }
 
 cmd_wake() {
@@ -132,9 +138,13 @@ cmd_config() {
   local sub="$1"; shift
   case "$sub" in
     dump)
-      echo "wifi_ip=$(cfg_get wifi_ip "")"
-      echo "max_size=$(cfg_get max_size 420)"
-      echo "mode=$(cfg_get mode usb)"
+      mkdir -p "$CONFIG_DIR"
+      {
+        echo "wifi_ip=$(cfg_get wifi_ip "")"
+        echo "max_size=$(cfg_get max_size 420)"
+        echo "mode=$(cfg_get mode usb)"
+      } > "$CONFIG_FILE"
+      cat "$CONFIG_FILE"
       ;;
     set)
       local key="$1" val="$2"

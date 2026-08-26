@@ -28,6 +28,7 @@ Panel {
     return s
   }
   property string scriptPath: localPath(Qt.resolvedUrl("scripts/omadroid.sh"))
+  readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/omarchy/omadroid.conf"
 
   function open() {
     root.controller.show()
@@ -54,6 +55,7 @@ Panel {
   }
 
   function applyStatus(text) {
+    if (!text) return
     try {
       var s = JSON.parse(text.trim())
       root.connected = s.connected || "none"
@@ -117,6 +119,7 @@ Panel {
   }
 
   function parseConfig(text) {
+    if (!text) return
     var lines = text.split("\n")
     for (var i = 0; i < lines.length; i++) {
       var kv = lines[i].split("=")
@@ -145,22 +148,41 @@ Panel {
     wifiBtn.active = (root.mode === "wifi")
   }
 
-  // ── processes ───────────────────────────────────────────────────────────────
+  // ── processes (triggers; output is read from state files via FileView) ─────
   Process {
     id: statusProc
     command: [root.scriptPath, "status"]
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: function(t) { root.applyStatus(t) } }
+    onExited: stateFile.reload()
   }
 
   Process {
     id: connectProc
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: function(t) { root.applyStatus(t) } }
+    command: [root.scriptPath, "connect"]
+    onExited: stateFile.reload()
   }
 
   Process {
     id: cfgProc
     command: [root.scriptPath, "config", "dump"]
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: function(t) { root.parseConfig(t) } }
+    onExited: configFile.reload()
+  }
+
+  FileView {
+    id: stateFile
+    path: "/tmp/omadroid-state.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.applyStatus(text())
+    onLoadFailed: root.applyStatus("")
+  }
+
+  FileView {
+    id: configFile
+    path: root.configPath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.parseConfig(text())
+    onLoadFailed: root.parseConfig("")
   }
 
   Process {
