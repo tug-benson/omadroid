@@ -10,6 +10,10 @@ The widget shows a 📱 icon in the bar. Clicking it opens a panel:
 - **Bottom of the panel** — a live preview of the phone screen + an **Open screen**
   button that launches the interactive scrcpy window.
 
+The status line shows the connection type, device model and battery level, with
+a colored dot (green = USB, orange = WiFi, red = disconnected). The last used
+WiFi IP and mode are remembered between sessions.
+
 > Unlocking the screen is done physically (fingerprint / PIN) on the device.
 > The **Wake** button turns the screen on so the preview shows up.
 

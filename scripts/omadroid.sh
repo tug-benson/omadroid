@@ -57,10 +57,12 @@ emit_json() {
 }
 
 emit_status_json() {
-  local connected="$1" ip="$2" model=""
-  [ "$connected" = "wifi" ] && model=$(adb -s "$ip:$ADB_PORT" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
-  [ "$connected" = "usb" ]  && model=$(adb -s "$ip" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
-  emit_json "{\"connected\":\"$connected\",\"ip\":\"$ip\",\"model\":\"$model\"}"
+  local connected="$1" ip="$2" model="" battery=""
+  local dev="$ip"
+  [ "$connected" = "wifi" ] && dev="$ip:$ADB_PORT"
+  model=$(adb -s "$dev" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+  battery=$(adb -s "$dev" shell dumpsys battery 2>/dev/null | grep -i "level:" | grep -oE '[0-9]+' | head -1)
+  emit_json "{\"connected\":\"$connected\",\"ip\":\"$ip\",\"model\":\"$model\",\"battery\":\"$battery\"}"
 }
 
 cmd_status() {

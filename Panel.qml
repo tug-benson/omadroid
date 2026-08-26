@@ -17,7 +17,8 @@ Panel {
   property string wifiIp: ""
   property int maxSize: 1080
   property string connected: "none"      // "none" | "usb" | "wifi"
-  property string statusText: "Non connecté"
+  property string statusText: "Not connected"
+  property string battery: ""
   property string previewSource: ""
   property int previewToken: 0
   readonly property string previewPath: "/tmp/omadroid-preview.png"
@@ -59,12 +60,15 @@ Panel {
     try {
       var s = JSON.parse(text.trim())
       root.connected = s.connected || "none"
+      root.battery = s.battery || ""
       if (root.connected === "usb")
         root.statusText = "Connected (USB)" + (s.model ? " — " + s.model : "")
       else if (root.connected === "wifi")
         root.statusText = "Connected (WiFi" + (s.ip ? " " + s.ip : "") + ")" + (s.model ? " — " + s.model : "")
       else
         root.statusText = s.error ? "Not connected — " + s.error : "Not connected"
+      if (root.battery)
+        root.statusText += "  🔋 " + root.battery + "%"
       root.refreshPreview()
     } catch (e) {
       root.statusText = "Status error"
@@ -102,7 +106,7 @@ Panel {
   function doDisconnect() {
     Quickshell.execDetached([root.scriptPath, "disconnect"])
     root.connected = "none"
-    root.statusText = "Non connecté"
+    root.statusText = "Not connected"
     root.previewSource = ""
     root.refreshStatus()
   }
@@ -344,14 +348,26 @@ Panel {
           }
         }
 
-        // Status
-        Text {
+        // Status (with colored indicator)
+        Row {
+          spacing: Style.space(8)
           width: parent.width
-          text: root.statusText
-          color: root.fg()
-          font.family: Style.font.family
-          font.pixelSize: Style.font.body
-          wrapMode: Text.WordWrap
+          Rectangle {
+            width: Style.space(12)
+            height: Style.space(12)
+            radius: width / 2
+            anchors.verticalCenter: parent.verticalCenter
+            color: root.connected === "none" ? "#e5484d"
+                 : (root.connected === "usb" ? "#30a46c" : "#f5a623")
+          }
+          Text {
+            width: parent.width - Style.space(20)
+            text: root.statusText
+            color: root.fg()
+            font.family: Style.font.family
+            font.pixelSize: Style.font.body
+            wrapMode: Text.WordWrap
+          }
         }
 
         // Action buttons
