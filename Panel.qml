@@ -842,19 +842,10 @@ Panel {
             height: Style.space(24)
             color: Util.alpha(root.fg(), 0.3)
           }
-          Rectangle {
-            width: Style.space(12)
-            height: Style.space(12)
-            radius: width / 2
-            color: root.recording ? "#e5484d" : "transparent"
-            border.color: root.recording ? "#e5484d" : Util.alpha(root.fg(), 0.3)
-            border.width: 1
-            anchors.verticalCenter: parent.verticalCenter
-          }
           PanelButton {
             label: root.recording ? "Stop" : "Record"
             active: root.recording
-            fg: root.fg()
+            fg: root.recording ? "#e5484d" : root.fg()
             onClicked: root.recording ? root.stopRecord() : root.startRecord()
           }
           PanelButton {
@@ -908,6 +899,8 @@ Panel {
           Component {
             id: liveVideoComp
             Item {
+              anchors.fill: parent
+              Component.onCompleted: livePlayer.play()
               MediaPlayer {
                 id: livePlayer
                 source: root.liveOn ? root.liveUrl : ""
