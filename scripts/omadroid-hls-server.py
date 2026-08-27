@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Omadroid HLS server.
 
-Serves the ffmpeg-generated HLS playlist/segments from LIVE_DIR over HTTP,
-bound to 127.0.0.1, with the correct MIME types so QtMultimedia's HLS demuxer
-accepts the playlist.
+Serves the ffmpeg-generated HLS playlist/segments (or a live frame.png) from
+LIVE_DIR over HTTP, bound to 127.0.0.1, with the correct MIME types.
 
 Usage: omadroid-hls-server.py <port> <directory>
 """
@@ -16,6 +15,9 @@ DIRECTORY = sys.argv[2] if len(sys.argv) > 2 else "."
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=DIRECTORY, **kwargs)
+
     def guess_type(self, path):
         p = path.lower()
         if p.endswith(".m3u8"):
@@ -28,11 +30,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         pass
 
 
-Handler.directory = DIRECTORY
-
-
 class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     daemon_threads = True
+    allow_reuse_address = True
 
 
 def main():

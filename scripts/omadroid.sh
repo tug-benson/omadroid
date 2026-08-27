@@ -484,32 +484,39 @@ cmd_live() {
     start)
       [ -z "$dev" ] && { printf '{"live":false,"error":"no device"}' > "$LIVE_FILE"; exit 1; }
       if [ -f "$LIVE_PID_FILE" ] && kill -0 "$(cat "$LIVE_PID_FILE")" 2>/dev/null; then
-        printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
+        printf '{"live":true,"url":"http://127.0.0.1:%s/frame.png"}' "$LIVE_PORT" > "$LIVE_FILE"
         exit 0
       fi
-      # Keep the display on and awake so screenrecord does not fail with
-      # INVALID_LAYER_STACK while the live feed is active.
-      adb -s "$dev" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
-      adb -s "$dev" shell wm dismiss-keyguard >/dev/null 2>&1
-      adb -s "$dev" shell "svc power stayon true" >/dev/null 2>&1
+      # Keep the display on and awake while the live feed is active.
+      timeout 5 adb -s "$dev" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+      timeout 5 adb -s "$dev" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+      timeout 5 adb -s "$dev" shell "svc power stayon true" >/dev/null 2>&1 || true
+      pkill -9 -f "[o]madroid-hls-server" 2>/dev/null || true
       mkdir -p "$LIVE_DIR"; rm -f "$LIVE_DIR"/*
-      # Stream the device screen to a local HLS playlist via ffmpeg, then
-      # serve it over HTTP so the panel can play it as a live Video.
-      setsid bash -c "adb -s '$dev' exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist '$LIVE_DIR/stream.m3u8' >$OMA_DIR/omadroid-live.log 2>&1" &
+      # Capture a fresh frame continuously and serve it over HTTP so the panel
+      # can show it as a reloading live image (Qt Quick Image, no HLS needed).
+      setsid bash -c "trap 'pkill -9 -f \"screencap -p\" 2>/dev/null || true; exit' EXIT TERM INT; while true; do adb -s '$dev' exec-out screencap -p > '$LIVE_DIR/frame.png.new' 2>/dev/null && mv '$LIVE_DIR/frame.png.new' '$LIVE_DIR/frame.png'; sleep 0.4; done" &
       echo $! > "$LIVE_PID_FILE"
       ( setsid python3 "$SCRIPT_DIR/omadroid-hls-server.py" "$LIVE_PORT" "$LIVE_DIR" >$OMA_DIR/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
-      printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
+      printf '{"live":true,"url":"http://127.0.0.1:%s/frame.png"}' "$LIVE_PORT" > "$LIVE_FILE"
       ;;
     ffmpeg)
       [ -z "$dev" ] && { echo "no device" >&2; exit 1; }
-      pkill -9 -f "screenrecord --output-format" 2>/dev/null || true
+      pkill -9 -f "screencap -p" 2>/dev/null || true
       mkdir -p "$LIVE_DIR"; rm -f "$LIVE_DIR"/*
-      adb -s "$dev" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
-      adb -s "$dev" shell wm dismiss-keyguard >/dev/null 2>&1
-      adb -s "$dev" shell "svc power stayon true" >/dev/null 2>&1
-      # Foreground pipeline: blocks until killed. The caller (panel) owns the
-      # process lifecycle via Quickshell so the feed stays alive while Live is on.
-      adb -s "$dev" exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist "$LIVE_DIR/stream.m3u8"
+      timeout 5 adb -s "$dev" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+      timeout 5 adb -s "$dev" shell wm dismiss-keyguard >/dev/null 2>&1 || true
+      timeout 5 adb -s "$dev" shell "svc power stayon true" >/dev/null 2>&1 || true
+      # Foreground capture loop: blocks until killed. The caller (panel) owns
+      # the process lifecycle via Quickshell so the feed stays alive while Live
+      # is on. Each frame is written atomically (new + rename) so the panel's
+      # Image never reads a half-written PNG.
+      trap 'pkill -9 -f "[s]creencap -p" 2>/dev/null || true; exit' EXIT TERM INT
+      while true; do
+        adb -s "$dev" exec-out screencap -p > "$LIVE_DIR/frame.png.new" 2>/dev/null \
+          && mv "$LIVE_DIR/frame.png.new" "$LIVE_DIR/frame.png"
+        sleep 0.4
+      done
       ;;
     http)
       mkdir -p "$LIVE_DIR"
@@ -517,9 +524,9 @@ cmd_live() {
       exec python3 "$SCRIPT_DIR/omadroid-hls-server.py" "$LIVE_PORT" "$LIVE_DIR"
       ;;
     stop)
-      [ -n "$dev" ] && adb -s "$dev" shell "svc power stayon false" >/dev/null 2>&1
-      pkill -9 -f "screenrecord --output-format" 2>/dev/null || true
-      pkill -9 -f "omadroid-hls-server" 2>/dev/null || true
+      [ -n "$dev" ] && timeout 5 adb -s "$dev" shell "svc power stayon false" >/dev/null 2>&1 || true
+      pkill -9 -f "[s]creencap -p" 2>/dev/null || true
+      pkill -9 -f "[o]madroid-hls-server" 2>/dev/null || true
       if [ -f "$LIVE_PID_FILE" ]; then
         kill -9 -"$(cat "$LIVE_PID_FILE")" 2>/dev/null || kill -9 "$(cat "$LIVE_PID_FILE")" 2>/dev/null || true
         rm -f "$LIVE_PID_FILE"
@@ -533,7 +540,7 @@ cmd_live() {
       ;;
     status)
       if [ -f "$LIVE_PID_FILE" ] && kill -0 "$(cat "$LIVE_PID_FILE")" 2>/dev/null; then
-        printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
+        printf '{"live":true,"url":"http://127.0.0.1:%s/frame.png"}' "$LIVE_PORT" > "$LIVE_FILE"
       else
         rm -f "$LIVE_PID_FILE" "$LIVE_HTTP_PID_FILE"
         printf '{"live":false}' > "$LIVE_FILE"
