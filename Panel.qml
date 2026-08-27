@@ -888,20 +888,30 @@ Panel {
           border.width: 1
           clip: true
 
-          MediaPlayer {
-            id: livePlayer
-            source: root.liveOn ? root.liveUrl : ""
-            muted: true
-            autoPlay: true
+          Loader {
+            id: liveLoader
+            anchors.fill: parent
+            active: root.liveOn
+            visible: root.liveOn
+            sourceComponent: liveVideoComp
           }
 
-          VideoOutput {
-            id: liveOutput
-            source: livePlayer
-            anchors.fill: parent
-            fillMode: VideoOutput.PreserveAspectFit
-            rotation: root.previewRotation
-            visible: root.liveOn
+          Component {
+            id: liveVideoComp
+            Item {
+              MediaPlayer {
+                id: livePlayer
+                source: root.liveOn ? root.liveUrl : ""
+                autoPlay: true
+                videoOutput: liveOutput
+              }
+              VideoOutput {
+                id: liveOutput
+                anchors.fill: parent
+                fillMode: VideoOutput.PreserveAspectFit
+                rotation: root.previewRotation
+              }
+            }
           }
 
           Image {
