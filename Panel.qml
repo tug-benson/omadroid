@@ -245,7 +245,7 @@ Panel {
     if (root.connected === "none" && !root.selectedSerial) return
     var ffmpegArgs = [root.scriptPath, "live", "ffmpeg"]
     var httpArgs = [root.scriptPath, "live", "http"]
-    if (root.selectedSerial) ffmpegArgs.push("--serial", root.selectedSerial)
+    if (root.selectedSerial) { ffmpegArgs.push("--serial", root.selectedSerial); httpArgs.push("--serial", root.selectedSerial) }
     liveFfmpeg.command = ffmpegArgs
     liveHttp.command = httpArgs
     liveFfmpeg.running = true
@@ -907,12 +907,25 @@ Panel {
                 source: root.liveOn ? root.liveUrl : ""
                 autoPlay: true
                 videoOutput: liveOutput
+                onErrorOccurred: liveRetryTimer.restart()
               }
               VideoOutput {
                 id: liveOutput
                 anchors.fill: parent
                 fillMode: VideoOutput.PreserveAspectFit
                 rotation: root.previewRotation
+              }
+              Timer {
+                id: liveRetryTimer
+                interval: 1000
+                repeat: false
+                onTriggered: {
+                  if (!root.liveOn) return
+                  var s = livePlayer.source
+                  livePlayer.source = ""
+                  livePlayer.source = s
+                  livePlayer.play()
+                }
               }
             }
           }

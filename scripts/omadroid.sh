@@ -23,6 +23,7 @@
 # the user explicitly selects the WiFi mode (and provides the phone IP).
 
 set -u
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ADB_PORT="${ADB_PORT:-5555}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy"
 CONFIG_FILE="$CONFIG_DIR/omadroid.conf"
@@ -477,10 +478,10 @@ cmd_record() {
 
 cmd_live() {
   local sub="${1:-status}"; shift 2>/dev/null || true
+  local serial; serial=$(take_serial "$@")
+  local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
   case "$sub" in
     start)
-      local serial; serial=$(take_serial "$@")
-      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
       [ -z "$dev" ] && { printf '{"live":false,"error":"no device"}' > "$LIVE_FILE"; exit 1; }
       if [ -f "$LIVE_PID_FILE" ] && kill -0 "$(cat "$LIVE_PID_FILE")" 2>/dev/null; then
         printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
@@ -500,8 +501,6 @@ cmd_live() {
       printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
       ;;
     ffmpeg)
-      local serial; serial=$(take_serial "$@")
-      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
       [ -z "$dev" ] && { echo "no device" >&2; exit 1; }
       pkill -9 -f "screenrecord --output-format" 2>/dev/null || true
       mkdir -p "$LIVE_DIR"; rm -f "$LIVE_DIR"/*
@@ -515,11 +514,9 @@ cmd_live() {
     http)
       mkdir -p "$LIVE_DIR"
       pkill -9 -f "http.server $LIVE_PORT" 2>/dev/null || true
-       exec python3 -m http.server "$LIVE_PORT" --bind 127.0.0.1 --directory "$LIVE_DIR"
+      exec python3 -m http.server "$LIVE_PORT" --bind 127.0.0.1 --directory "$LIVE_DIR"
       ;;
     stop)
-      local serial; serial=$(take_serial "$@")
-      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
       [ -n "$dev" ] && adb -s "$dev" shell "svc power stayon false" >/dev/null 2>&1
       pkill -9 -f "screenrecord --output-format" 2>/dev/null || true
       pkill -9 -f "http.server $LIVE_PORT" 2>/dev/null || true
