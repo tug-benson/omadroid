@@ -496,7 +496,7 @@ cmd_live() {
       mkdir -p "$LIVE_DIR"; rm -f "$LIVE_DIR"/*
       # Stream the device screen to a local HLS playlist via ffmpeg, then serve
       # it over HTTP so the panel can play it as a live Video.
-      setsid bash -c "trap 'pkill -9 -f \"[s]creenrecord --output-format\" 2>/dev/null || true; exit' EXIT TERM INT; adb -s '$dev' exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist '$LIVE_DIR/stream.m3u8' >$OMA_DIR/omadroid-live.log 2>&1" &
+      setsid bash -c "trap 'pkill -9 -f \"[s]creenrecord --output-format\" 2>/dev/null || true; exit' EXIT TERM INT; adb -s '$dev' exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 0.5 -hls_list_size 4 -hls_flags delete_segments+omit_endlist '$LIVE_DIR/stream.m3u8' >$OMA_DIR/omadroid-live.log 2>&1" &
       echo $! > "$LIVE_PID_FILE"
       ( setsid python3 "$SCRIPT_DIR/omadroid-hls-server.py" "$LIVE_PORT" "$LIVE_DIR" >$OMA_DIR/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
       printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
@@ -514,7 +514,7 @@ cmd_live() {
       # process lifecycle via Quickshell so the feed stays alive while Live is on.
       # Streams the device screen to a local HLS playlist served over HTTP.
       trap 'pkill -9 -f "[s]creenrecord --output-format" 2>/dev/null || true; exit' EXIT TERM INT
-      adb -s "$dev" exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist "$LIVE_DIR/stream.m3u8"
+      adb -s "$dev" exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 0.5 -hls_list_size 4 -hls_flags delete_segments+omit_endlist "$LIVE_DIR/stream.m3u8"
       ;;
     http)
       mkdir -p "$LIVE_DIR"
