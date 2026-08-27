@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import QtMultimedia
 import qs.Commons
 import qs.Ui
 
@@ -42,8 +43,7 @@ Panel {
   property bool liveOn: false
   property string liveUrl: ""
   property string livePort: "8731"
-  property string liveAddr: "http://127.0.0.1:" + root.livePort + "/frame.png"
-  property int liveToken: 0
+  property string liveAddr: "http://127.0.0.1:" + root.livePort + "/stream.m3u8"
   readonly property string iconFont: (root.bar && root.bar.fontFamily) ? root.bar.fontFamily : "CaskaydiaMono Nerd Font"
 
   function localPath(url) {
@@ -926,28 +926,38 @@ Panel {
             anchors.fill: parent
             active: root.liveOn
             visible: root.liveOn
-            sourceComponent: liveImageComp
+            sourceComponent: liveVideoComp
           }
 
           Component {
-            id: liveImageComp
+            id: liveVideoComp
             Item {
               anchors.fill: parent
-              Image {
-                id: liveImg
+              Component.onCompleted: livePlayer.play()
+              MediaPlayer {
+                id: livePlayer
+                source: root.liveOn ? root.liveUrl : ""
+                autoPlay: true
+                videoOutput: liveOutput
+                onErrorOccurred: liveRetryTimer.restart()
+              }
+              VideoOutput {
+                id: liveOutput
                 anchors.fill: parent
-                fillMode: Image.PreserveAspectFit
+                fillMode: VideoOutput.PreserveAspectFit
                 rotation: root.previewRotation
-                source: root.liveOn ? (root.liveUrl + "?t=" + root.liveToken) : ""
-                cache: false
-                asynchronous: true
               }
               Timer {
-                id: liveRefresh
-                interval: 400
-                repeat: true
-                running: root.liveOn
-                onTriggered: root.liveToken++
+                id: liveRetryTimer
+                interval: 1000
+                repeat: false
+                onTriggered: {
+                  if (!root.liveOn) return
+                  var s = livePlayer.source
+                  livePlayer.source = ""
+                  livePlayer.source = s
+                  livePlayer.play()
+                }
               }
             }
           }
