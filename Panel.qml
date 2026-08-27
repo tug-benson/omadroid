@@ -857,13 +857,14 @@ Panel {
           }
         }
 
-        // Device system stats (RAM / CPU / storage) — equal framed glyph+value blocks
+        // Device system stats (RAM / CPU / storage) — framed glyph+value blocks
         Row {
           width: parent.width
           spacing: Style.space(8)
+          property real cpuW: Style.space(64)
 
           Rectangle {
-            width: (parent.width - Style.space(16)) / 3
+            width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
             height: Style.space(48)
             radius: Style.cornerRadius
             border.color: Util.alpha(root.fg(), 0.18)
@@ -878,7 +879,7 @@ Panel {
             }
           }
           Rectangle {
-            width: (parent.width - Style.space(16)) / 3
+            width: parent.cpuW
             height: Style.space(48)
             radius: Style.cornerRadius
             border.color: Util.alpha(root.fg(), 0.18)
@@ -893,7 +894,7 @@ Panel {
             }
           }
           Rectangle {
-            width: (parent.width - Style.space(16)) / 3
+            width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
             height: Style.space(48)
             radius: Style.cornerRadius
             border.color: Util.alpha(root.fg(), 0.18)
