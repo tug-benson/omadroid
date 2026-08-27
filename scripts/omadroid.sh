@@ -15,6 +15,7 @@
 #   toggles [--serial S]             -> JSON {wifi, bt, data, airplane} (bool)
 #   toggle <wifi|bt|data|airplane>   -> flip a connectivity setting
 #   record [start|stop|status]       -> screenrecord to ~/Videos
+#   live [start|stop|status]          -> stream the screen to a local HLS feed
 #   config dump                      -> key=value lines (wifi_ip, max_size, mode)
 #   config set <k> <v>               -> persist a setting
 #
@@ -33,6 +34,11 @@ TOGGLES_FILE="${OMADROID_TOGGLES:-/tmp/omadroid-toggles.json}"
 REC_FILE="${OMADROID_REC:-/tmp/omadroid-record.json}"
 REC_PID_FILE="/tmp/omadroid-record.pid"
 REC_REMOTE="/sdcard/omadroid_recording.mp4"
+LIVE_DIR="${OMADROID_LIVE_DIR:-/tmp/omadroid-hls}"
+LIVE_PORT="${OMADROID_LIVE_PORT:-8731}"
+LIVE_FILE="${OMADROID_LIVE:-/tmp/omadroid-live.json}"
+LIVE_PID_FILE="/tmp/omadroid-live.pid"
+LIVE_HTTP_PID_FILE="/tmp/omadroid-live-http.pid"
 
 # ── config helpers ──────────────────────────────────────────────────────────
 cfg_get() {
@@ -463,6 +469,56 @@ cmd_record() {
   esac
 }
 
+cmd_live() {
+  local sub="${1:-status}"; shift 2>/dev/null || true
+  case "$sub" in
+    start)
+      local serial; serial=$(take_serial "$@")
+      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+      [ -z "$dev" ] && { printf '{"live":false,"error":"no device"}' > "$LIVE_FILE"; exit 1; }
+      if [ -f "$LIVE_PID_FILE" ] && kill -0 "$(cat "$LIVE_PID_FILE")" 2>/dev/null; then
+        printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
+        exit 0
+      fi
+      # Keep the display on and awake so screenrecord does not fail with
+      # INVALID_LAYER_STACK while the live feed is active.
+      adb -s "$dev" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+      adb -s "$dev" shell wm dismiss-keyguard >/dev/null 2>&1
+      adb -s "$dev" shell "svc power stayon true" >/dev/null 2>&1
+      mkdir -p "$LIVE_DIR"; rm -f "$LIVE_DIR"/*
+      # Stream the device screen to a local HLS playlist via ffmpeg, then
+      # serve it over HTTP so the panel can play it as a live Video.
+      setsid bash -c "adb -s '$dev' exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist '$LIVE_DIR/stream.m3u8' >/tmp/omadroid-live.log 2>&1" &
+      echo $! > "$LIVE_PID_FILE"
+      ( setsid python3 -m http.server "$LIVE_PORT" --directory "$LIVE_DIR" >/tmp/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
+      printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
+      ;;
+    stop)
+      local serial; serial=$(take_serial "$@")
+      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+      [ -n "$dev" ] && adb -s "$dev" shell "svc power stayon false" >/dev/null 2>&1
+      if [ -f "$LIVE_PID_FILE" ]; then
+        kill -9 -"$(cat "$LIVE_PID_FILE")" 2>/dev/null || kill -9 "$(cat "$LIVE_PID_FILE")" 2>/dev/null || true
+        rm -f "$LIVE_PID_FILE"
+      fi
+      if [ -f "$LIVE_HTTP_PID_FILE" ]; then
+        kill -9 -"$(cat "$LIVE_HTTP_PID_FILE")" 2>/dev/null || kill "$(cat "$LIVE_HTTP_PID_FILE")" 2>/dev/null || true
+        rm -f "$LIVE_HTTP_PID_FILE"
+      fi
+      rm -rf "$LIVE_DIR"
+      printf '{"live":false}' > "$LIVE_FILE"
+      ;;
+    status)
+      if [ -f "$LIVE_PID_FILE" ] && kill -0 "$(cat "$LIVE_PID_FILE")" 2>/dev/null; then
+        printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
+      else
+        rm -f "$LIVE_PID_FILE" "$LIVE_HTTP_PID_FILE"
+        printf '{"live":false}' > "$LIVE_FILE"
+      fi
+      ;;
+  esac
+}
+
 case "${1:-status}" in
   status)     shift; cmd_status "$@" ;;
   connect)    shift; cmd_connect "$@" ;;
@@ -479,6 +535,7 @@ case "${1:-status}" in
   toggles)    shift; cmd_toggles "$@" ;;
   toggle)     shift; cmd_toggle "$@" ;;
   record)     shift; cmd_record "$@" ;;
+  live)       shift; cmd_live "$@" ;;
   config)     shift; cmd_config "$@" ;;
   *)          echo "{\"error\":\"unknown command\"}"; exit 1 ;;
 esac

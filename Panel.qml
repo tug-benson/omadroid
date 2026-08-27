@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import QtMultimedia
 import qs.Commons
 import qs.Ui
 
@@ -39,6 +40,8 @@ Panel {
   property bool toggleData: false
   property bool toggleAirplane: false
   property bool recording: false
+  property bool liveOn: false
+  property string liveUrl: ""
   readonly property string iconFont: (root.bar && root.bar.fontFamily) ? root.bar.fontFamily : "CaskaydiaMono Nerd Font"
 
   function localPath(url) {
@@ -59,6 +62,7 @@ Panel {
     root.refreshSysinfo()
     root.refreshToggles()
     root.refreshRecording()
+    root.refreshLive()
   }
 
   function close() {
@@ -228,6 +232,42 @@ Panel {
       var s = JSON.parse(text.trim())
       root.recording = !!s.recording
     } catch (e) {}
+  }
+
+  function refreshLive() {
+    if (liveProc.running) return
+    liveProc.command = [root.scriptPath, "live", "status"]
+    liveProc.running = true
+  }
+
+  function applyLive(text) {
+    if (!text) return
+    try {
+      var s = JSON.parse(text.trim())
+      root.liveOn = !!s.live
+      root.liveUrl = s.url || ""
+      previewTimer.running = !root.liveOn && root.opened
+    } catch (e) {}
+  }
+
+  function toggleLive() {
+    if (root.liveOn) root.stopLive()
+    else root.startLive()
+  }
+
+  function startLive() {
+    if (root.connected === "none" && !root.selectedSerial) return
+    var args = [root.scriptPath, "live", "start"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    liveProc.command = args
+    liveProc.running = true
+  }
+
+  function stopLive() {
+    var args = [root.scriptPath, "live", "stop"]
+    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
+    liveProc.command = args
+    liveProc.running = true
   }
 
   function brightness(dir) {
@@ -423,6 +463,11 @@ Panel {
     onExited: recordFile.reload()
   }
 
+  Process {
+    id: liveProc
+    onExited: liveFile.reload()
+  }
+
   FileView {
     id: stateFile
     path: "/tmp/omadroid-state.json"
@@ -477,6 +522,15 @@ Panel {
     onLoadFailed: root.applyRecording("")
   }
 
+  FileView {
+    id: liveFile
+    path: "/tmp/omadroid-live.json"
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.applyLive(text())
+    onLoadFailed: root.applyLive("")
+  }
+
   // ── timers ──────────────────────────────────────────────────────────────────
   Timer {
     id: previewTimer
@@ -492,7 +546,7 @@ Panel {
     interval: 3000
     repeat: true
     running: root.opened
-    onTriggered: { root.refreshStatus(); root.refreshDevices(); root.refreshToggles() }
+    onTriggered: { root.refreshStatus(); root.refreshDevices(); root.refreshToggles(); root.refreshLive() }
   }
 
   Timer {
@@ -834,6 +888,22 @@ Panel {
           border.width: 1
           clip: true
 
+          MediaPlayer {
+            id: livePlayer
+            source: root.liveOn ? root.liveUrl : ""
+            muted: true
+            autoPlay: true
+          }
+
+          VideoOutput {
+            id: liveOutput
+            source: livePlayer
+            anchors.fill: parent
+            fillMode: VideoOutput.PreserveAspectFit
+            rotation: root.previewRotation
+            visible: root.liveOn
+          }
+
           Image {
             anchors.centerIn: parent
             rotation: root.previewRotation
@@ -843,7 +913,7 @@ Panel {
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             smooth: true
-            visible: root.previewSource !== ""
+            visible: root.previewSource !== "" && !root.liveOn
           }
 
           Text {
@@ -881,12 +951,13 @@ Panel {
           }
 
           // Preview controls (top-right, stacked vertically)
-          Column {
-            anchors.top: parent.top
-            anchors.right: parent.right
-            anchors.margins: Style.space(8)
-            spacing: Style.space(6)
-            PanelButton { label: "\uDB81\uDC67"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
+            Column {
+              anchors.top: parent.top
+              anchors.right: parent.right
+              anchors.margins: Style.space(8)
+              spacing: Style.space(6)
+              PanelButton { label: "Live"; active: root.liveOn; fg: root.fg(); onClicked: root.toggleLive() }
+              PanelButton { label: "\uDB81\uDC67"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
             PanelButton { label: root.previewExpanded ? "\uDB80\uDE94" : "\uDB80\uDE93"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
             PanelButton { label: "\uDB80\uDCDB"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("down") }
             PanelButton { label: "\uDB80\uDCE0"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("up") }
