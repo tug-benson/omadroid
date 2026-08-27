@@ -857,24 +857,27 @@ Panel {
           }
         }
 
-        // Device system stats (RAM / CPU / storage)
+        // Device system stats (RAM / CPU / storage) — equal glyph blocks
         Row {
           width: parent.width
           spacing: Style.space(8)
           Column {
             width: (parent.width - Style.space(16)) / 3
-            Text { text: "RAM"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
-            Text { width: parent.width; text: root.sysRam || "—"; color: root.fg(); font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
+            spacing: Style.space(4)
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "\uEFC5"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(46) }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: root.sysRam || "—"; color: Util.alpha(root.fg(), 0.85); font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
           }
           Column {
             width: (parent.width - Style.space(16)) / 3
-            Text { text: "CPU"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
-            Text { width: parent.width; text: root.sysCpu || "—"; color: root.fg(); font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
+            spacing: Style.space(4)
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "\uDB39\uDCBC"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(46) }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: root.sysCpu || "—"; color: Util.alpha(root.fg(), 0.85); font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
           }
           Column {
             width: (parent.width - Style.space(16)) / 3
-            Text { text: "Storage"; color: Util.alpha(root.fg(), 0.6); font.family: Style.font.family; font.pixelSize: Style.font.caption }
-            Text { width: parent.width; text: root.sysStorage || "—"; color: root.fg(); font.family: Style.font.family; font.pixelSize: Style.font.body; elide: Text.ElideRight }
+            spacing: Style.space(4)
+            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "\uDB80\uDDCA"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(46) }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: root.sysStorage || "—"; color: Util.alpha(root.fg(), 0.85); font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
           }
         }
 

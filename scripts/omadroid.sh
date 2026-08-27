@@ -497,7 +497,7 @@ cmd_live() {
       # serve it over HTTP so the panel can play it as a live Video.
       setsid bash -c "adb -s '$dev' exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist '$LIVE_DIR/stream.m3u8' >$OMA_DIR/omadroid-live.log 2>&1" &
       echo $! > "$LIVE_PID_FILE"
-      ( setsid python3 -m http.server "$LIVE_PORT" --bind 127.0.0.1 --directory "$LIVE_DIR" >$OMA_DIR/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
+      ( setsid python3 "$SCRIPT_DIR/omadroid-hls-server.py" "$LIVE_PORT" "$LIVE_DIR" >$OMA_DIR/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
       printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
       ;;
     ffmpeg)
@@ -513,13 +513,13 @@ cmd_live() {
       ;;
     http)
       mkdir -p "$LIVE_DIR"
-      pkill -9 -f "http.server $LIVE_PORT" 2>/dev/null || true
-      exec python3 -m http.server "$LIVE_PORT" --bind 127.0.0.1 --directory "$LIVE_DIR"
+      pkill -9 -f "omadroid-hls-server" 2>/dev/null || true
+      exec python3 "$SCRIPT_DIR/omadroid-hls-server.py" "$LIVE_PORT" "$LIVE_DIR"
       ;;
     stop)
       [ -n "$dev" ] && adb -s "$dev" shell "svc power stayon false" >/dev/null 2>&1
       pkill -9 -f "screenrecord --output-format" 2>/dev/null || true
-      pkill -9 -f "http.server $LIVE_PORT" 2>/dev/null || true
+      pkill -9 -f "omadroid-hls-server" 2>/dev/null || true
       if [ -f "$LIVE_PID_FILE" ]; then
         kill -9 -"$(cat "$LIVE_PID_FILE")" 2>/dev/null || kill -9 "$(cat "$LIVE_PID_FILE")" 2>/dev/null || true
         rm -f "$LIVE_PID_FILE"
