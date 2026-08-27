@@ -42,6 +42,8 @@ Panel {
   property bool recording: false
   property bool liveOn: false
   property string liveUrl: ""
+  property string livePort: "8731"
+  property string liveAddr: "http://127.0.0.1:" + root.livePort + "/stream.m3u8"
   readonly property string iconFont: (root.bar && root.bar.fontFamily) ? root.bar.fontFamily : "CaskaydiaMono Nerd Font"
 
   function localPath(url) {
@@ -62,7 +64,6 @@ Panel {
     root.refreshSysinfo()
     root.refreshToggles()
     root.refreshRecording()
-    root.refreshLive()
   }
 
   function close() {
@@ -234,22 +235,6 @@ Panel {
     } catch (e) {}
   }
 
-  function refreshLive() {
-    if (liveProc.running) return
-    liveProc.command = [root.scriptPath, "live", "status"]
-    liveProc.running = true
-  }
-
-  function applyLive(text) {
-    if (!text) return
-    try {
-      var s = JSON.parse(text.trim())
-      root.liveOn = !!s.live
-      root.liveUrl = s.url || ""
-      previewTimer.running = !root.liveOn && root.opened
-    } catch (e) {}
-  }
-
   function toggleLive() {
     if (root.liveOn) root.stopLive()
     else root.startLive()
@@ -257,17 +242,27 @@ Panel {
 
   function startLive() {
     if (root.connected === "none" && !root.selectedSerial) return
-    var args = [root.scriptPath, "live", "start"]
-    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
-    liveProc.command = args
-    liveProc.running = true
+    var ffmpegArgs = [root.scriptPath, "live", "ffmpeg"]
+    var httpArgs = [root.scriptPath, "live", "http"]
+    if (root.selectedSerial) ffmpegArgs.push("--serial", root.selectedSerial)
+    liveFfmpeg.command = ffmpegArgs
+    liveHttp.command = httpArgs
+    liveFfmpeg.running = true
+    liveHttp.running = true
+    previewTimer.running = false
+    liveStartTimer.restart()
   }
 
   function stopLive() {
+    liveFfmpeg.running = false
+    liveHttp.running = false
+    root.liveOn = false
+    root.liveUrl = ""
+    if (root.opened) previewTimer.running = true
     var args = [root.scriptPath, "live", "stop"]
     if (root.selectedSerial) args.push("--serial", root.selectedSerial)
-    liveProc.command = args
-    liveProc.running = true
+    cleanupLive.command = args
+    cleanupLive.running = true
   }
 
   function brightness(dir) {
@@ -464,8 +459,15 @@ Panel {
   }
 
   Process {
-    id: liveProc
-    onExited: liveFile.reload()
+    id: liveFfmpeg
+  }
+
+  Process {
+    id: liveHttp
+  }
+
+  Process {
+    id: cleanupLive
   }
 
   FileView {
@@ -522,15 +524,6 @@ Panel {
     onLoadFailed: root.applyRecording("")
   }
 
-  FileView {
-    id: liveFile
-    path: "/tmp/omadroid-live.json"
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.applyLive(text())
-    onLoadFailed: root.applyLive("")
-  }
-
   // ── timers ──────────────────────────────────────────────────────────────────
   Timer {
     id: previewTimer
@@ -546,7 +539,17 @@ Panel {
     interval: 3000
     repeat: true
     running: root.opened
-    onTriggered: { root.refreshStatus(); root.refreshDevices(); root.refreshToggles(); root.refreshLive() }
+    onTriggered: { root.refreshStatus(); root.refreshDevices(); root.refreshToggles() }
+  }
+
+  Timer {
+    id: liveStartTimer
+    interval: 1500
+    repeat: false
+    onTriggered: {
+      root.liveUrl = root.liveAddr
+      root.liveOn = true
+    }
   }
 
   Timer {
@@ -854,6 +857,12 @@ Panel {
             fg: root.fg()
             onClicked: root.recording ? root.stopRecord() : root.startRecord()
           }
+          PanelButton {
+            label: "Live"
+            active: root.liveOn
+            fg: root.liveOn ? "#3ddc84" : root.fg()
+            onClicked: root.toggleLive()
+          }
         }
 
         // Device system stats (RAM / CPU / storage)
@@ -966,7 +975,6 @@ Panel {
               anchors.right: parent.right
               anchors.margins: Style.space(8)
               spacing: Style.space(6)
-              PanelButton { label: "Live"; active: root.liveOn; fg: root.fg(); onClicked: root.toggleLive() }
               PanelButton { label: "\uDB81\uDC67"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
             PanelButton { label: root.previewExpanded ? "\uDB80\uDE94" : "\uDB80\uDE93"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
             PanelButton { label: "\uDB80\uDCDB"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("down") }

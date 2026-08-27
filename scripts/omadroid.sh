@@ -493,10 +493,30 @@ cmd_live() {
       ( setsid python3 -m http.server "$LIVE_PORT" --directory "$LIVE_DIR" >/tmp/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
       printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
       ;;
+    ffmpeg)
+      local serial; serial=$(take_serial "$@")
+      local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
+      [ -z "$dev" ] && { echo "no device" >&2; exit 1; }
+      pkill -9 -f "screenrecord --output-format" 2>/dev/null || true
+      mkdir -p "$LIVE_DIR"; rm -f "$LIVE_DIR"/*
+      adb -s "$dev" shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1
+      adb -s "$dev" shell wm dismiss-keyguard >/dev/null 2>&1
+      adb -s "$dev" shell "svc power stayon true" >/dev/null 2>&1
+      # Foreground pipeline: blocks until killed. The caller (panel) owns the
+      # process lifecycle via Quickshell so the feed stays alive while Live is on.
+      adb -s "$dev" exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist "$LIVE_DIR/stream.m3u8"
+      ;;
+    http)
+      mkdir -p "$LIVE_DIR"
+      pkill -9 -f "http.server $LIVE_PORT" 2>/dev/null || true
+      exec python3 -m http.server "$LIVE_PORT" --directory "$LIVE_DIR"
+      ;;
     stop)
       local serial; serial=$(take_serial "$@")
       local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
       [ -n "$dev" ] && adb -s "$dev" shell "svc power stayon false" >/dev/null 2>&1
+      pkill -9 -f "screenrecord --output-format" 2>/dev/null || true
+      pkill -9 -f "http.server $LIVE_PORT" 2>/dev/null || true
       if [ -f "$LIVE_PID_FILE" ]; then
         kill -9 -"$(cat "$LIVE_PID_FILE")" 2>/dev/null || kill -9 "$(cat "$LIVE_PID_FILE")" 2>/dev/null || true
         rm -f "$LIVE_PID_FILE"
