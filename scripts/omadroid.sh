@@ -26,19 +26,25 @@ set -u
 ADB_PORT="${ADB_PORT:-5555}"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy"
 CONFIG_FILE="$CONFIG_DIR/omadroid.conf"
-STATE_FILE="${OMADROID_STATE:-/tmp/omadroid-state.json}"
-DEVICES_FILE="${OMADROID_DEVICES:-/tmp/omadroid-devices.json}"
-PREVIEW_FILE="${OMADROID_PREVIEW:-/tmp/omadroid-preview.png}"
-SYSINFO_FILE="${OMADROID_SYSINFO:-/tmp/omadroid-sysinfo.json}"
-TOGGLES_FILE="${OMADROID_TOGGLES:-/tmp/omadroid-toggles.json}"
-REC_FILE="${OMADROID_REC:-/tmp/omadroid-record.json}"
-REC_PID_FILE="/tmp/omadroid-record.pid"
+# Per-user, non-world-writable runtime dir (avoids predictable /tmp paths that
+# a local attacker could pre-create as a symlink). XDG_RUNTIME_DIR is 0700 and
+# unique per user; fall back to ~/.cache when it is unset.
+RUNTIME_BASE="${XDG_RUNTIME_DIR:-${HOME:-/tmp}/.cache}"
+OMA_DIR="$RUNTIME_BASE/omadroid"
+mkdir -p "$OMA_DIR"
+STATE_FILE="${OMADROID_STATE:-$OMA_DIR/omadroid-state.json}"
+DEVICES_FILE="${OMADROID_DEVICES:-$OMA_DIR/omadroid-devices.json}"
+PREVIEW_FILE="${OMADROID_PREVIEW:-$OMA_DIR/omadroid-preview.png}"
+SYSINFO_FILE="${OMADROID_SYSINFO:-$OMA_DIR/omadroid-sysinfo.json}"
+TOGGLES_FILE="${OMADROID_TOGGLES:-$OMA_DIR/omadroid-toggles.json}"
+REC_FILE="${OMADROID_REC:-$OMA_DIR/omadroid-record.json}"
+REC_PID_FILE="$OMA_DIR/omadroid-record.pid"
 REC_REMOTE="/sdcard/omadroid_recording.mp4"
-LIVE_DIR="${OMADROID_LIVE_DIR:-/tmp/omadroid-hls}"
+LIVE_DIR="${OMADROID_LIVE_DIR:-$OMA_DIR/omadroid-hls}"
 LIVE_PORT="${OMADROID_LIVE_PORT:-8731}"
-LIVE_FILE="${OMADROID_LIVE:-/tmp/omadroid-live.json}"
-LIVE_PID_FILE="/tmp/omadroid-live.pid"
-LIVE_HTTP_PID_FILE="/tmp/omadroid-live-http.pid"
+LIVE_FILE="${OMADROID_LIVE:-$OMA_DIR/omadroid-live.json}"
+LIVE_PID_FILE="$OMA_DIR/omadroid-live.pid"
+LIVE_HTTP_PID_FILE="$OMA_DIR/omadroid-live-http.pid"
 
 # ── config helpers ──────────────────────────────────────────────────────────
 cfg_get() {
@@ -488,9 +494,9 @@ cmd_live() {
       mkdir -p "$LIVE_DIR"; rm -f "$LIVE_DIR"/*
       # Stream the device screen to a local HLS playlist via ffmpeg, then
       # serve it over HTTP so the panel can play it as a live Video.
-      setsid bash -c "adb -s '$dev' exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist '$LIVE_DIR/stream.m3u8' >/tmp/omadroid-live.log 2>&1" &
+      setsid bash -c "adb -s '$dev' exec-out screenrecord --output-format=h264 - 2>/dev/null | ffmpeg -f h264 -i - -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 5 -keyint_min 5 -vf 'scale=480:-2' -b:v 1500k -f hls -hls_time 1 -hls_list_size 4 -hls_flags delete_segments+omit_endlist '$LIVE_DIR/stream.m3u8' >$OMA_DIR/omadroid-live.log 2>&1" &
       echo $! > "$LIVE_PID_FILE"
-      ( setsid python3 -m http.server "$LIVE_PORT" --directory "$LIVE_DIR" >/tmp/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
+      ( setsid python3 -m http.server "$LIVE_PORT" --bind 127.0.0.1 --directory "$LIVE_DIR" >$OMA_DIR/omadroid-live-http.log 2>&1 & echo $! > "$LIVE_HTTP_PID_FILE" )
       printf '{"live":true,"url":"http://127.0.0.1:%s/stream.m3u8"}' "$LIVE_PORT" > "$LIVE_FILE"
       ;;
     ffmpeg)
@@ -509,7 +515,7 @@ cmd_live() {
     http)
       mkdir -p "$LIVE_DIR"
       pkill -9 -f "http.server $LIVE_PORT" 2>/dev/null || true
-      exec python3 -m http.server "$LIVE_PORT" --directory "$LIVE_DIR"
+       exec python3 -m http.server "$LIVE_PORT" --bind 127.0.0.1 --directory "$LIVE_DIR"
       ;;
     stop)
       local serial; serial=$(take_serial "$@")

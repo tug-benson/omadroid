@@ -23,7 +23,7 @@ Panel {
   property string battery: ""
   property string previewSource: ""
   property int previewToken: 0
-  readonly property string previewPath: "/tmp/omadroid-preview.png"
+  readonly property string previewPath: runtimeDir + "/omadroid-preview.png"
   property string selectedSerial: ""     // empty = auto (first device)
   property ListModel devices: ListModel {}
   property int previewRotation: 0
@@ -53,7 +53,8 @@ Panel {
   }
   property string scriptPath: localPath(Qt.resolvedUrl("scripts/omadroid.sh"))
   readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/omarchy/omadroid.conf"
-  readonly property string devicesPath: "/tmp/omadroid-devices.json"
+  readonly property string runtimeDir: (Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("HOME") || "/tmp") + "/.cache")) + "/omadroid"
+  readonly property string devicesPath: runtimeDir + "/omadroid-devices.json"
 
   function open() {
     root.controller.show()
@@ -472,7 +473,7 @@ Panel {
 
   FileView {
     id: stateFile
-    path: "/tmp/omadroid-state.json"
+    path: runtimeDir + "/omadroid-state.json"
     watchChanges: true
     printErrors: false
     onLoaded: root.applyStatus(text())
@@ -499,7 +500,7 @@ Panel {
 
   FileView {
     id: sysinfoFile
-    path: "/tmp/omadroid-sysinfo.json"
+    path: runtimeDir + "/omadroid-sysinfo.json"
     watchChanges: true
     printErrors: false
     onLoaded: root.applySysinfo(text())
@@ -508,7 +509,7 @@ Panel {
 
   FileView {
     id: togglesFile
-    path: "/tmp/omadroid-toggles.json"
+    path: runtimeDir + "/omadroid-toggles.json"
     watchChanges: true
     printErrors: false
     onLoaded: root.applyToggles(text())
@@ -517,7 +518,7 @@ Panel {
 
   FileView {
     id: recordFile
-    path: "/tmp/omadroid-record.json"
+    path: runtimeDir + "/omadroid-record.json"
     watchChanges: true
     printErrors: false
     onLoaded: root.applyRecording(text())
