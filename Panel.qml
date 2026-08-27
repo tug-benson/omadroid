@@ -857,27 +857,55 @@ Panel {
           }
         }
 
-        // Device system stats (RAM / CPU / storage) — equal glyph blocks
+        // Device system stats (RAM / CPU / storage) — equal framed glyph+value blocks
         Row {
           width: parent.width
           spacing: Style.space(8)
-          Column {
+
+          Rectangle {
             width: (parent.width - Style.space(16)) / 3
-            spacing: Style.space(4)
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "\uEFC5"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(46) }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: root.sysRam || "—"; color: Util.alpha(root.fg(), 0.85); font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
+            height: Style.space(48)
+            radius: Style.cornerRadius
+            border.color: Util.alpha(root.fg(), 0.18)
+            border.width: 1
+            color: Util.alpha(root.fg(), 0.04)
+            Row {
+              anchors.fill: parent
+              anchors.margins: Style.space(10)
+              spacing: Style.space(8)
+              Text { text: "\uEFC5"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: root.sysRam || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
+            }
           }
-          Column {
+          Rectangle {
             width: (parent.width - Style.space(16)) / 3
-            spacing: Style.space(4)
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "\uDB39\uDCBC"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(46) }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: root.sysCpu || "—"; color: Util.alpha(root.fg(), 0.85); font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
+            height: Style.space(48)
+            radius: Style.cornerRadius
+            border.color: Util.alpha(root.fg(), 0.18)
+            border.width: 1
+            color: Util.alpha(root.fg(), 0.04)
+            Row {
+              anchors.fill: parent
+              anchors.margins: Style.space(10)
+              spacing: Style.space(8)
+              Text { text: ""; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: root.sysCpu || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
+            }
           }
-          Column {
+          Rectangle {
             width: (parent.width - Style.space(16)) / 3
-            spacing: Style.space(4)
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: "\uDB80\uDDCA"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(46) }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: root.sysStorage || "—"; color: Util.alpha(root.fg(), 0.85); font.family: Style.font.family; font.pixelSize: Style.font.caption; elide: Text.ElideRight }
+            height: Style.space(48)
+            radius: Style.cornerRadius
+            border.color: Util.alpha(root.fg(), 0.18)
+            border.width: 1
+            color: Util.alpha(root.fg(), 0.04)
+            Row {
+              anchors.fill: parent
+              anchors.margins: Style.space(10)
+              spacing: Style.space(8)
+              Text { text: "󰣳"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: root.sysStorage || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
+            }
           }
         }
 
