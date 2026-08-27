@@ -861,7 +861,7 @@ Panel {
         Row {
           width: parent.width
           spacing: Style.space(8)
-          property real cpuW: Style.space(64)
+          property real cpuW: Style.space(80)
 
           Rectangle {
             width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
