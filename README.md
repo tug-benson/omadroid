@@ -7,7 +7,7 @@ The widget shows a 📱 icon in the bar. Clicking it opens a panel:
 
 - **Top of the panel** — configuration (connection mode USB / WiFi, WiFi IP,
   scrcpy window size, Connect / Wake / Disconnect buttons, status).
-- **Bottom of the panel** — a live preview of the phone screen + an **Open screen**
+- **Bottom of the panel** — a preview of the phone screen + an **Open screen**
   button that launches the interactive scrcpy window.
 
 The status line shows the connection type, device model and battery level, with
@@ -26,6 +26,19 @@ WiFi IP and mode are remembered between sessions.
 - **USB is the default transport** (most secure — no network traffic).
 - **WiFi is opt-in** and must be enabled manually in the panel. It uses the
   standard ADB TCP/IP port `5555`.
+- **No network server.** The plugin does not bind any HTTP/TCP listener; the
+  preview is a local screenshot file read from a private per-user directory. The
+  previous HLS live-streaming feature has been removed.
+- **Private runtime state.** All state, config caches and the preview image are
+  written to `$XDG_RUNTIME_DIR/omadroid`, created as a `0700` directory owned by
+  the user. Writes are atomic (exclusive `0600` temp file + rename); there is no
+  `/tmp` fallback and no predictable world-writable path.
+- **Input validation.** Device serials, WiFi IPs, ports, key names and swipe
+  coordinates are validated against strict formats before being passed to `adb`.
+  Device-supplied strings (model, SSID, RSSI, …) are length-capped and JSON-escaped.
+- **Bounded operations.** Every `adb` invocation runs under a timeout, and large
+  command output is capped. The preview PNG is validated (magic bytes + size)
+  before it is used.
 
 ---
 
@@ -87,7 +100,7 @@ The widget appears in the `right` section of the bar (move it with
 ## 💡 Usage
 
 1. Plug the phone in over USB and accept the ADB authorization.
-2. Click the 📱 icon → the panel shows the live preview.
+2. Click the 📱 icon → the panel shows the phone preview.
 3. Click **Open screen** to launch the interactive scrcpy window
    (size is adjustable, ~6–8″ equivalent by default).
 4. Unlock the phone physically, then use it like a window.
@@ -121,7 +134,7 @@ that starts Omarchy to tune it. Pick any free key combo — change
 - **Multiple devices**: if several phones are detected, a device picker lets
   you choose which one to mirror.
 - **Resolution toggle** for the scrcpy window: **1080p** / **720p**.
-- **Live preview** with **Rotate** (⟳) and **Expand** (▣) controls.
+- **Preview** (auto-refreshing screenshot) with **Rotate** (⟳) and **Expand** (▣) controls.
 - **Direct touch control**: tap and swipe directly on the preview to drive the
   phone (maps to `adb input tap` / `swipe`, accounting for preview rotation).
 - **Save snapshot**: the 💾 button copies the current preview to

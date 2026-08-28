@@ -1,7 +1,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import QtMultimedia
 import qs.Commons
 import qs.Ui
 
@@ -39,11 +38,6 @@ Panel {
   property bool toggleBt: false
   property bool toggleData: false
   property bool toggleAirplane: false
-  property bool recording: false
-  property bool liveOn: false
-  property string liveUrl: ""
-  property string livePort: "8731"
-  property string liveAddr: "http://127.0.0.1:" + root.livePort + "/stream.m3u8"
   readonly property string iconFont: (root.bar && root.bar.fontFamily) ? root.bar.fontFamily : "CaskaydiaMono Nerd Font"
 
   function localPath(url) {
@@ -64,7 +58,6 @@ Panel {
     root.refreshStatus()
     root.refreshSysinfo()
     root.refreshToggles()
-    root.refreshRecording()
   }
 
   function close() {
@@ -205,65 +198,6 @@ Panel {
     if (root.selectedSerial) args.push("--serial", root.selectedSerial)
     togglesProc.command = args
     togglesProc.running = true
-  }
-
-  function refreshRecording() {
-    if (recordProc.running) return
-    recordProc.command = [root.scriptPath, "record", "status"]
-    recordProc.running = true
-  }
-
-  function startRecord() {
-    if (root.connected === "none" && !root.selectedSerial) return
-    var args = [root.scriptPath, "record", "start"]
-    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
-    recordProc.command = args
-    recordProc.running = true
-  }
-
-  function stopRecord() {
-    var args = [root.scriptPath, "record", "stop"]
-    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
-    recordProc.command = args
-    recordProc.running = true
-  }
-
-  function applyRecording(text) {
-    if (!text) return
-    try {
-      var s = JSON.parse(text.trim())
-      root.recording = !!s.recording
-    } catch (e) {}
-  }
-
-  function toggleLive() {
-    if (root.liveOn) root.stopLive()
-    else root.startLive()
-  }
-
-  function startLive() {
-    if (root.connected === "none" && !root.selectedSerial) return
-    var ffmpegArgs = [root.scriptPath, "live", "ffmpeg"]
-    var httpArgs = [root.scriptPath, "live", "http"]
-    if (root.selectedSerial) { ffmpegArgs.push("--serial", root.selectedSerial); httpArgs.push("--serial", root.selectedSerial) }
-    liveFfmpeg.command = ffmpegArgs
-    liveHttp.command = httpArgs
-    liveFfmpeg.running = true
-    liveHttp.running = true
-    previewTimer.running = false
-    liveStartTimer.restart()
-  }
-
-  function stopLive() {
-    liveFfmpeg.running = false
-    liveHttp.running = false
-    root.liveOn = false
-    root.liveUrl = ""
-    if (root.opened) previewTimer.running = true
-    var args = [root.scriptPath, "live", "stop"]
-    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
-    cleanupLive.command = args
-    cleanupLive.running = true
   }
 
   function brightness(dir) {
@@ -454,23 +388,6 @@ Panel {
     onExited: togglesFile.reload()
   }
 
-  Process {
-    id: recordProc
-    onExited: recordFile.reload()
-  }
-
-  Process {
-    id: liveFfmpeg
-  }
-
-  Process {
-    id: liveHttp
-  }
-
-  Process {
-    id: cleanupLive
-  }
-
   FileView {
     id: stateFile
     path: runtimeDir + "/omadroid-state.json"
@@ -516,15 +433,6 @@ Panel {
     onLoadFailed: root.applyToggles("")
   }
 
-  FileView {
-    id: recordFile
-    path: runtimeDir + "/omadroid-record.json"
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.applyRecording(text())
-    onLoadFailed: root.applyRecording("")
-  }
-
   // ── timers ──────────────────────────────────────────────────────────────────
   Timer {
     id: previewTimer
@@ -541,16 +449,6 @@ Panel {
     repeat: true
     running: root.opened
     onTriggered: { root.refreshStatus(); root.refreshDevices(); root.refreshToggles() }
-  }
-
-  Timer {
-    id: liveStartTimer
-    interval: 1000
-    repeat: false
-    onTriggered: {
-      root.liveUrl = root.liveAddr
-      root.liveOn = true
-    }
   }
 
   Timer {
@@ -625,6 +523,7 @@ Panel {
                 color: root.fg()
                 font.family: root.iconFont
                 font.pixelSize: Style.font.caption
+                textFormat: Text.PlainText
                 horizontalAlignment: Text.AlignRight
               }
               Text {
@@ -633,6 +532,7 @@ Panel {
                 color: Util.alpha(root.fg(), 0.7)
                 font.family: Style.font.family
                 font.pixelSize: Style.font.caption
+                textFormat: Text.PlainText
                 horizontalAlignment: Text.AlignRight
               }
             }
@@ -682,6 +582,7 @@ Panel {
             color: root.fg()
             font.family: Style.font.family
             font.pixelSize: Style.font.caption
+            textFormat: Text.PlainText
             elide: Text.ElideRight
             width: Math.max(Style.space(40), parent.width - modeRow.width - Style.space(70))
             anchors.verticalCenter: parent.verticalCenter
@@ -829,35 +730,7 @@ Panel {
           }
         }
 
-        // Quick device controls
-        Row {
-          spacing: Style.space(6)
-          PanelButton { label: "\uDB80\uDC4D"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
-          PanelButton { label: "\uDB80\uDEDC"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
-          PanelButton { label: "\uDB80\uDC3B"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
-          PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
-          PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
-          PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: Style.space(40); fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
-          Rectangle {
-            width: 1
-            height: Style.space(24)
-            color: Util.alpha(root.fg(), 0.3)
-          }
-          PanelButton {
-            label: root.recording ? "Stop" : "Record"
-            active: root.recording
-            fg: root.recording ? "#e5484d" : root.fg()
-            onClicked: root.recording ? root.stopRecord() : root.startRecord()
-          }
-          PanelButton {
-            label: "Live"
-            active: root.liveOn
-            fg: root.liveOn ? "#3ddc84" : root.fg()
-            onClicked: root.toggleLive()
-          }
-        }
-
-        // Device system stats (RAM / CPU / storage) — framed glyph+value blocks
+        // Device system stats (RAM / CPU / storage)
         Row {
           width: parent.width
           spacing: Style.space(8)
@@ -889,7 +762,7 @@ Panel {
               anchors.fill: parent
               anchors.margins: Style.space(10)
               spacing: Style.space(8)
-              Text { text: ""; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: "\uF4BC"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
               Text { text: root.sysCpu || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
             }
           }
@@ -904,13 +777,25 @@ Panel {
               anchors.fill: parent
               anchors.margins: Style.space(10)
               spacing: Style.space(8)
-              Text { text: "󰣳"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+              Text { text: "\uE8B3"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
               Text { text: root.sysStorage || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
             }
           }
         }
 
-        // Live preview (bottom of the panel)
+        // Device controls (full panel width)
+        Row {
+          width: parent.width
+          spacing: Style.space(6)
+          PanelButton { label: "\uDB80\uDC4D"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
+          PanelButton { label: "\uDB80\uDEDC"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
+          PanelButton { label: "\uDB80\uDC3B"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
+          PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
+          PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
+          PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+        }
+
+        // Preview
         Rectangle {
           id: previewBox
           width: parent.width
@@ -921,47 +806,6 @@ Panel {
           border.width: 1
           clip: true
 
-          Loader {
-            id: liveLoader
-            anchors.fill: parent
-            active: root.liveOn
-            visible: root.liveOn
-            sourceComponent: liveVideoComp
-          }
-
-          Component {
-            id: liveVideoComp
-            Item {
-              anchors.fill: parent
-              Component.onCompleted: livePlayer.play()
-              MediaPlayer {
-                id: livePlayer
-                source: root.liveOn ? root.liveUrl : ""
-                autoPlay: true
-                videoOutput: liveOutput
-                onErrorOccurred: liveRetryTimer.restart()
-              }
-              VideoOutput {
-                id: liveOutput
-                anchors.fill: parent
-                fillMode: VideoOutput.PreserveAspectFit
-                rotation: root.previewRotation
-              }
-              Timer {
-                id: liveRetryTimer
-                interval: 1000
-                repeat: false
-                onTriggered: {
-                  if (!root.liveOn) return
-                  var s = livePlayer.source
-                  livePlayer.source = ""
-                  livePlayer.source = s
-                  livePlayer.play()
-                }
-              }
-            }
-          }
-
           Image {
             anchors.centerIn: parent
             rotation: root.previewRotation
@@ -971,7 +815,7 @@ Panel {
             fillMode: Image.PreserveAspectFit
             asynchronous: true
             smooth: true
-            visible: root.previewSource !== "" && !root.liveOn
+            visible: root.previewSource !== ""
           }
 
           Text {
@@ -985,7 +829,6 @@ Panel {
             verticalAlignment: Text.AlignVCenter
           }
 
-          // Tap / swipe directly on the preview to control the device
           MouseArea {
             anchors.fill: parent
             property int startX: 0
@@ -999,22 +842,21 @@ Panel {
               if (!down) return
               down = false
               if (root.connected === "none" && !root.selectedSerial) return
-              var s = root.previewToDevice(startX, startY)
-              var cur = root.previewToDevice(e.x, e.y)
-              if (Math.abs(e.x - startX) < 12 && Math.abs(e.y - startY) < 12)
-                root.sendSwipe(s[0], s[1], s[0], s[1], 1)
-              else
-                root.sendSwipe(s[0], s[1], cur[0], cur[1], 80)
+                var s = root.previewToDevice(startX, startY)
+                var cur = root.previewToDevice(e.x, e.y)
+                if (Math.abs(e.x - startX) < 12 && Math.abs(e.y - startY) < 12)
+                  root.sendSwipe(s[0], s[1], s[0], s[1], 1)
+                else
+                  root.sendSwipe(s[0], s[1], cur[0], cur[1], 80)
             }
           }
 
-          // Preview controls (top-right, stacked vertically)
-            Column {
-              anchors.top: parent.top
-              anchors.right: parent.right
-              anchors.margins: Style.space(8)
-              spacing: Style.space(6)
-              PanelButton { label: "\uDB81\uDC67"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
+          Column {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: Style.space(8)
+            spacing: Style.space(6)
+            PanelButton { label: "\uDB81\uDC67"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
             PanelButton { label: root.previewExpanded ? "\uDB80\uDE94" : "\uDB80\uDE93"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
             PanelButton { label: "\uDB80\uDCDB"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("down") }
             PanelButton { label: "\uDB80\uDCE0"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("up") }
