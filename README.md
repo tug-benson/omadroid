@@ -29,16 +29,30 @@ WiFi IP and mode are remembered between sessions.
 - **No network server.** The plugin does not bind any HTTP/TCP listener; the
   preview is a local screenshot file read from a private per-user directory. The
   previous HLS live-streaming feature has been removed.
-- **Private runtime state.** All state, config caches and the preview image are
-  written to `$XDG_RUNTIME_DIR/omadroid`, created as a `0700` directory owned by
-  the user. Writes are atomic (exclusive `0600` temp file + rename); there is no
-  `/tmp` fallback and no predictable world-writable path.
+- **Private runtime state.** All state, config and the preview image are written
+  to `$XDG_RUNTIME_DIR/omadroid`, created as a `0700` directory owned by the user
+  (ownership/permissions/non-symlink verified at runtime; no `/tmp` fallback and
+  no predictable world-writable path).
+- **Descriptor-based, fsynced writes.** All file output goes through a small helper
+  (`scripts/omadroid-io.py`) that writes to an `O_EXCL`/`O_NOFOLLOW` `0600` temp
+  file, `fsync`s it, and atomically `rename`s it into place. Read paths are opened
+  with `O_NOFOLLOW` and bounded to a fixed byte ceiling; the config file is read and
+  parsed the same way (no `sed -i` / append / raw redirection).
+- **No re-reading of mutable state from disk in the UI.** The panel reads command
+  output directly from each `Process`'s stdout (`StdioCollector`) rather than
+  `FileView`-watching state files, so a predictable path can never be swapped under
+  it to inject data.
+- **Only our own scrcpy is killed.** The launched scrcpy is tracked by PID (written
+  via the fsynced helper). Disconnect kills exactly that child — after verifying
+  `/proc/<pid>/comm` is `scrcpy` — instead of a blind `pkill -x scrcpy` that could
+  hit unrelated instances.
 - **Input validation.** Device serials, WiFi IPs, ports, key names and swipe
   coordinates are validated against strict formats before being passed to `adb`.
   Device-supplied strings (model, SSID, RSSI, …) are length-capped and JSON-escaped.
 - **Bounded operations.** Every `adb` invocation runs under a timeout, and large
-  command output is capped. The preview PNG is validated (magic bytes + size)
-  before it is used.
+  command output/streams are capped (`head -c`). The preview PNG is captured into a
+  bounded temp file and validated (magic bytes + size) before it replaces the
+  displayed image.
 
 ---
 

@@ -5,11 +5,11 @@
 #   status [--serial S]              -> JSON {connected, ip, model, battery}
 #   connect [--wifi] [--ip IP]       -> JSON status (USB first, optional WiFi)
 #   wake [--serial S]                -> wake the device screen (keyevent WAKEUP)
-#   disconnect                       -> drop WiFi ADB + close scrcpy
+#   disconnect                       -> close only the scrcpy child we launched
 #   preview <outfile> [--serial S]   -> write a PNG screenshot to <outfile>
 #   open [--serial S|--wifi --ip IP] -> launch the interactive scrcpy window
 #   devices                          -> JSON array of {serial, transport, model}
-#   save [dest]                      -> copy the current preview PNG to <dest>
+#   save [dest]                     -> copy the current preview PNG to <dest>
 #   brightness [up|down|set N]       -> adjust screen brightness (0-255)
 #   sysinfo [--serial S]             -> JSON {ram_*, cpu_load, storage_free, ssid, rssi}
 #   toggles [--serial S]             -> JSON {wifi, bt, data, airplane} (bool)
@@ -17,24 +17,31 @@
 #   config dump                      -> key=value lines (wifi_ip, max_size, mode)
 #   config set <k> <v>               -> persist a setting
 #
-# Security: USB is the default transport. WiFi is opt-in and only used when
-# the user explicitly selects the WiFi mode (and provides the phone IP).
-# Runtime state lives only in a private per-user directory; all writes are
-# atomic and the device-supplied identifiers/values are validated and escaped.
+# Security model:
+#  * USB is the default transport. WiFi is opt-in and only used when the user
+#    explicitly selects the WiFi mode (and provides the phone IP).
+#  * No network listener: the previous HLS live-streaming/recording features were
+#    removed. The preview is a local screenshot file owned by the user.
+#  * State/config live only in a private per-user directory; all reads go through
+#    a bounded, O_NOFOLLOW descriptor reader and all writes through an exclusive
+#    0600 temp fd + fsync + atomic rename (see omadroid-io.py). No /tmp fallback.
+#  * Device strings are validated and JSON-escaped; every adb call is timeout and
+#    byte bounded; the screenshot is captured through a byte cap and validated as
+#    a real PNG before it is published.
 
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ADB_PORT="${ADB_PORT:-5555}"
 ADB_TIMEOUT=15
+IO="$SCRIPT_DIR/omadroid-io.py"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy"
 CONFIG_FILE="$CONFIG_DIR/omadroid.conf"
 
-# Per-user private runtime dir. XDG_RUNTIME_DIR is unique per user and 0700;
-# we require it and refuse to fall back to a shared location.
+# Per-user private runtime dir. XDG_RUNTIME_DIR is unique per user and 0700; we
+# require it and refuse to fall back to a shared location.
 RUNTIME_BASE="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is required and unset}"
 OMA_DIR="$RUNTIME_BASE/omadroid"
 
-# Create and verify the runtime dir is a private, user-owned, non-symlink dir.
 if [ ! -d "$OMA_DIR" ]; then
   mkdir -m 0700 "$OMA_DIR" 2>/dev/null || { echo '{"error":"cannot create runtime dir"}' >&2; exit 1; }
 fi
@@ -46,27 +53,15 @@ if [ -L "$OMA_DIR" ] \
   exit 1
 fi
 
-STATE_FILE="$OMA_DIR/omadroid-state.json"
-DEVICES_FILE="$OMA_DIR/omadroid-devices.json"
 PREVIEW_FILE="$OMA_DIR/omadroid-preview.png"
-SYSINFO_FILE="$OMA_DIR/omadroid-sysinfo.json"
-TOGGLES_FILE="$OMA_DIR/omadroid-toggles.json"
+SCRCPY_PID_FILE="$OMA_DIR/omadroid-scrcpy.pid"
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 adbw() { timeout "$ADB_TIMEOUT" adb "$@"; }
 
-atomic_write() {
-  local dest="$1" tmp
-  tmp=$(mktemp "$OMA_DIR/.tmp.XXXXXX") || return 1
-  chmod 0600 "$tmp" 2>/dev/null
-  cat > "$tmp"
-  mv -f "$tmp" "$dest"
-}
-
-out_json() {
-  printf '%s' "$2"
-  printf '%s' "$2" | atomic_write "$1"
-}
+io_write() { python3 "$IO" write "$1"; }
+io_writetmp() { python3 "$IO" write-tmp "$1" "${2:-}"; }
+io_read() { python3 "$IO" read "$1" "$2"; }
 
 jstr() {
   local s="$1"
@@ -98,10 +93,10 @@ coerce_serial() {
   valid_serial "$s" && [ -n "$s" ] && printf '%s' "$s" || printf ''
 }
 
-# ── config helpers ────────────────────────────────────────────────────────────
+# ── config helpers (descriptor-based, atomic) ─────────────────────────────────
 cfg_get() {
   local key="$1" def="$2" val=""
-  [ -f "$CONFIG_FILE" ] && val=$(grep -E "^${key}=" "$CONFIG_FILE" 2>/dev/null | head -1 | cut -d= -f2-)
+  val=$(io_read "$CONFIG_FILE" 65536 2>/dev/null | grep -E "^${key}=" | head -1 | cut -d= -f2-)
   printf '%s' "${val:-$def}"
 }
 
@@ -114,19 +109,22 @@ cfg_set() {
     *)        return 1 ;;
   esac
   mkdir -p "$CONFIG_DIR"
-  if [ -f "$CONFIG_FILE" ] && grep -qE "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
-    sed -i "s|^${key}=.*|${key}=${val}|" "$CONFIG_FILE"
+  local cur newcfg
+  cur=$(io_read "$CONFIG_FILE" 65536 2>/dev/null || true)
+  if printf '%s\n' "$cur" | grep -qE "^${key}="; then
+    newcfg=$(printf '%s\n' "$cur" | sed "s|^${key}=.*|${key}=${val}|")
   else
-    printf '%s=%s\n' "$key" "$val" >> "$CONFIG_FILE"
+    newcfg=$(printf '%s\n%s=%s\n' "$cur" "$key" "$val")
   fi
+  printf '%s' "$newcfg" | io_write "$CONFIG_FILE"
 }
 
 # ── device detection ────────────────────────────────────────────────────────────
 usb_device() {
-  adbw devices 2>/dev/null | awk 'NR>1 && $2=="device"' | grep -v ':' | awk '{print $1}' | grep -E '^[A-Za-z0-9._:/-]+$' | head -1
+  adbw devices 2>/dev/null | head -c 65536 | awk 'NR>1 && $2=="device"' | grep -v ':' | awk '{print $1}' | grep -E '^[A-Za-z0-9._:/-]+$' | head -1
 }
 wifi_device() {
-  adbw devices 2>/dev/null | awk 'NR>1 && $2=="device"' | grep ':' | awk '{print $1}' | grep -E '^[A-Za-z0-9._:/-]+$' | head -1
+  adbw devices 2>/dev/null | head -c 65536 | awk 'NR>1 && $2=="device"' | grep ':' | awk '{print $1}' | grep -E '^[A-Za-z0-9._:/-]+$' | head -1
 }
 any_device() {
   local u w
@@ -152,16 +150,14 @@ emit_status_json() {
   [ "$connected" = "wifi" ] && dev="$ip:$ADB_PORT"
   if [ -n "$dev" ] && valid_serial "$dev"; then
     model=$(adbw -s "$dev" shell getprop ro.product.model 2>/dev/null | head -c 128 | tr -d '\r')
-    battery=$(adbw -s "$dev" shell dumpsys battery 2>/dev/null | grep -i "level:" | grep -oE '[0-9]+' | head -1)
+    battery=$(adbw -s "$dev" shell dumpsys battery 2>/dev/null | head -c 4096 | grep -i "level:" | grep -oE '[0-9]+' | head -1)
     local res
-    res=$(adbw -s "$dev" shell wm size 2>/dev/null | grep -i "Physical size" | grep -oE '[0-9]+x[0-9]+' | head -1)
+    res=$(adbw -s "$dev" shell wm size 2>/dev/null | head -c 4096 | grep -i "Physical size" | grep -oE '[0-9]+x[0-9]+' | head -1)
     w=$(printf '%s' "$res" | cut -d x -f1 | head -c 8)
     h=$(printf '%s' "$res" | cut -d x -f2 | head -c 8)
   fi
-  local json
-  json=$(printf '{"connected":%s,"ip":%s,"model":%s,"battery":%s,"w":%s,"h":%s}' \
-    "$(jstr "$connected")" "$(jstr "$ip")" "$(jstr "$model")" "$(jstr "$battery")" "$(jstr "$w")" "$(jstr "$h")")
-  out_json "$STATE_FILE" "$json"
+  printf '{"connected":%s,"ip":%s,"model":%s,"battery":%s,"w":%s,"h":%s}' \
+    "$(jstr "$connected")" "$(jstr "$ip")" "$(jstr "$model")" "$(jstr "$battery")" "$(jstr "$w")" "$(jstr "$h")"
 }
 
 cmd_status() {
@@ -169,7 +165,7 @@ cmd_status() {
   local serial; serial=$(coerce_serial "$(take_serial "$@")")
   local target="$serial"
   [ -z "$target" ] && target=$(any_device)
-  [ -z "$target" ] && { out_json "$STATE_FILE" '{"connected":"none","ip":"","model":"","battery":""}'; return; }
+  [ -z "$target" ] && { printf '%s' '{"connected":"none","ip":"","model":"","battery":""}'; return; }
   local transport="usb"; case "$target" in *:*) transport="wifi";; esac
   local ip="$target"; [ "$transport" = "wifi" ] && ip="${target%:*}"
   emit_status_json "$transport" "$ip" "$target"
@@ -188,8 +184,8 @@ cmd_connect() {
 
   if [ "$mode" = "wifi" ]; then
     [ -z "$ip" ] && ip=$(cfg_get wifi_ip "")
-    [ -z "$ip" ] && { out_json "$STATE_FILE" '{"connected":"none","error":"WiFi IP required"}'; return; }
-    valid_ip "$ip" || { out_json "$STATE_FILE" '{"connected":"none","error":"Invalid WiFi IP"}'; return; }
+    [ -z "$ip" ] && { printf '%s' '{"connected":"none","error":"WiFi IP required"}'; return; }
+    valid_ip "$ip" || { printf '%s' '{"connected":"none","error":"Invalid WiFi IP"}'; return; }
     cfg_set wifi_ip "$ip"
     if adbw connect "${ip}:${ADB_PORT}" 2>&1 | grep -qi connected; then
       cmd_status; return
@@ -207,7 +203,7 @@ cmd_connect() {
   [ -n "$u" ] && { cmd_status; return; }
   local w; w=$(wifi_device)
   [ -n "$w" ] && { cmd_status; return; }
-  out_json "$STATE_FILE" '{"connected":"none","error":"No USB device detected"}'
+  printf '%s' '{"connected":"none","error":"No USB device detected"}'
 }
 
 cmd_wake() {
@@ -220,7 +216,16 @@ cmd_wake() {
 
 cmd_disconnect() {
   adbw disconnect >/dev/null 2>&1
-  pkill -x scrcpy >/dev/null 2>&1 || true
+  if [ -f "$SCRCPY_PID_FILE" ]; then
+    local pid
+    pid=$(io_read "$SCRCPY_PID_FILE" 32 2>/dev/null | tr -d ' \n' | grep -E '^[0-9]+$')
+    if [ -n "$pid" ] && [ -d "/proc/$pid" ] && [ "$(cat "/proc/$pid/comm" 2>/dev/null | tr -d '\n')" = "scrcpy" ]; then
+      kill "$pid" 2>/dev/null || true
+      sleep 0.3
+      [ -d "/proc/$pid" ] && kill -9 "$pid" 2>/dev/null || true
+    fi
+    rm -f "$SCRCPY_PID_FILE"
+  fi
   echo '{"ok":true}'
 }
 
@@ -230,18 +235,9 @@ cmd_preview() {
   adbw start-server >/dev/null 2>&1
   local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
   [ -z "$dev" ] && { echo '{"ok":false}'; exit 1; }
-  local tmp="${OMA_DIR}/.preview.$$.tmp"
-  if ! adbw -s "$dev" exec-out screencap -p > "$tmp" 2>/dev/null; then
-    rm -f "$tmp"
-    echo '{"ok":false}'; exit 1
-  fi
-  local sig sz
-  sig=$(head -c 8 "$tmp" | od -An -tx1 | tr -d ' \n')
-  sz=$(stat -c %s "$tmp" 2>/dev/null || echo 0)
-  if [ "$sig" != "89504e470d0a1a0a" ] || [ "$sz" -gt 20971520 ] || [ "$sz" -eq 0 ]; then
-    rm -f "$tmp"
-    echo '{"ok":false}'; exit 1
-  fi
+  local tmp
+  tmp=$(adbw -s "$dev" exec-out screencap -p 2>/dev/null | head -c 20971520 | python3 "$IO" write-tmp "$out" --png-check)
+  [ -z "$tmp" ] && { echo '{"ok":false}'; exit 1; }
   if [ -s "$out" ] && cmp -s "$tmp" "$out"; then
     rm -f "$tmp"
     echo '{"ok":true,"changed":false}'; exit 3
@@ -301,6 +297,7 @@ cmd_open() {
     [ "$max" != "0" ] && args+=("--max-size" "$max")
     [ -n "${SCRCPY_OPTS:-}" ] && args+=($SCRCPY_OPTS)
     setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+    printf '%s' "$!" | io_write "$SCRCPY_PID_FILE"
     echo '{"launched":true}'; return
   fi
 
@@ -309,20 +306,22 @@ cmd_open() {
   local args=("--video-bit-rate" "16M" "--max-fps" "60" "--window-title" "Omadroid")
   [ "$max" != "0" ] && args+=("--max-size" "$max")
   [ -n "${SCRCPY_OPTS:-}" ] && args+=($SCRCPY_OPTS)
-
   if { [ "$mode" != "wifi" ] || [ -z "$w" ]; } && [ -n "$u" ]; then
     args=("-s" "$u" "${args[@]}")
     setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+    printf '%s' "$!" | io_write "$SCRCPY_PID_FILE"
     echo '{"launched":true}'; return
   fi
   if [ -n "$w" ]; then
     args=("-s" "$w" "${args[@]}")
     setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+    printf '%s' "$!" | io_write "$SCRCPY_PID_FILE"
     echo '{"launched":true}'; return
   fi
   if [ "$mode" = "wifi" ] && [ -n "$ip" ] && valid_ip "$ip"; then
     args+=("--tcpip=${ip}:${ADB_PORT}")
     setsid scrcpy "${args[@]}" >/dev/null 2>&1 &
+    printf '%s' "$!" | io_write "$SCRCPY_PID_FILE"
     echo '{"launched":true}'; return
   fi
   echo '{"error":"No device detected (connect USB or set WiFi IP)"}'
@@ -332,7 +331,7 @@ cmd_open() {
 cmd_devices() {
   adbw start-server >/dev/null 2>&1
   local raw out="[" first=1 line serial transport model
-  raw=$(adbw devices -l 2>/dev/null | awk 'NR>1 && $2=="device"')
+  raw=$(adbw devices -l 2>/dev/null | head -c 65536 | awk 'NR>1 && $2=="device"')
   while read -r line; do
     [ -z "$line" ] && continue
     serial=$(printf '%s' "$line" | awk '{print $1}')
@@ -347,20 +346,18 @@ cmd_devices() {
     out="$out{\"serial\":$(jstr "$serial"),\"transport\":$(jstr "$transport"),\"name\":$(jstr "$model")}"
   done <<< "$raw"
   out="$out]"
-  out_json "$DEVICES_FILE" "$out"
+  printf '%s' "$out"
 }
 
 cmd_config() {
   local sub="$1"; shift
   case "$sub" in
     dump)
-      mkdir -p "$CONFIG_DIR"
       {
         echo "wifi_ip=$(cfg_get wifi_ip "")"
         echo "max_size=$(cfg_get max_size 1080)"
         echo "mode=$(cfg_get mode usb)"
-      } > "$CONFIG_FILE"
-      cat "$CONFIG_FILE"
+      }
       ;;
     set)
       local key="$1" val="$2"
@@ -396,7 +393,7 @@ cmd_sysinfo() {
   local serial; serial=$(coerce_serial "$(take_serial "$@")")
   local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
   if [ -z "$dev" ]; then
-    out_json "$SYSINFO_FILE" '{"ram_used":0,"ram_total":0,"cpu_load":0,"storage_free":0,"storage_total":0,"ssid":"","rssi":""}'
+    printf '%s' '{"ram_used":0,"ram_total":0,"cpu_load":0,"storage_free":0,"storage_total":0,"ssid":"","rssi":""}'
     return
   fi
   local out ram_total ram_avail ram_used_gb ram_total_gb cpu_load ssid rssi diskline storage_free_k storage_total_k
@@ -417,10 +414,8 @@ cmd_sysinfo() {
   ssid=$(printf '%s' "$out" | sed -n 's/.*SSID:[[:space:]]*"\([^"]*\)".*/\1/p' | head -c 64 | head -1)
   rssi=$(printf '%s' "$out" | grep -oE 'mRssi=-?[0-9]+' | head -1 | sed 's/mRssi=//' | head -c 8)
 
-  local json
-  json=$(printf '{"ram_used":%s,"ram_total":%s,"cpu_load":%s,"storage_free":%s,"storage_total":%s,"ssid":%s,"rssi":%s}' \
-    "$(jstr "$ram_used_gb")" "$(jstr "$ram_total_gb")" "$(jstr "$cpu_load")" "$(jstr "$storage_free_gb")" "$(jstr "$storage_total_gb")" "$(jstr "$ssid")" "$(jstr "$rssi")")
-  out_json "$SYSINFO_FILE" "$json"
+  printf '{"ram_used":%s,"ram_total":%s,"cpu_load":%s,"storage_free":%s,"storage_total":%s,"ssid":%s,"rssi":%s}' \
+    "$(jstr "$ram_used_gb")" "$(jstr "$ram_total_gb")" "$(jstr "$cpu_load")" "$(jstr "$storage_free_gb")" "$(jstr "$storage_total_gb")" "$(jstr "$ssid")" "$(jstr "$rssi")"
 }
 
 cmd_toggles() {
@@ -428,7 +423,7 @@ cmd_toggles() {
   local serial; serial=$(coerce_serial "$(take_serial "$@")")
   local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
   if [ -z "$dev" ]; then
-    out_json "$TOGGLES_FILE" '{"wifi":false,"bt":false,"data":false,"airplane":false}'
+    printf '%s' '{"wifi":false,"bt":false,"data":false,"airplane":false}'
     return
   fi
   local wifi bt data airplane
@@ -440,25 +435,23 @@ cmd_toggles() {
   [ -z "$bt" ] && bt=0
   [ -z "$data" ] && data=0
   [ -z "$airplane" ] && airplane=0
-  local json
-  json=$(printf '{"wifi":%s,"bt":%s,"data":%s,"airplane":%s}' \
+  printf '{"wifi":%s,"bt":%s,"data":%s,"airplane":%s}' \
     "$([ "$wifi" = "1" ] && echo true || echo false)" \
     "$([ "$bt" = "1" ] && echo true || echo false)" \
     "$([ "$data" = "1" ] && echo true || echo false)" \
-    "$([ "$airplane" = "1" ] && echo true || echo false)")
-  out_json "$TOGGLES_FILE" "$json"
+    "$([ "$airplane" = "1" ] && echo true || echo false)"
 }
 
 cmd_toggle() {
   local what="$1"; shift
   case "$what" in
     wifi|bt|data|airplane) ;;
-    *) out_json "$TOGGLES_FILE" '{"ok":false,"error":"unknown toggle"}'; exit 1 ;;
+    *) printf '%s' '{"ok":false,"error":"unknown toggle"}'; exit 1 ;;
   esac
   adbw start-server >/dev/null 2>&1
   local serial; serial=$(coerce_serial "$(take_serial "$@")")
   local dev="$serial"; [ -z "$dev" ] && dev=$(any_device)
-  [ -z "$dev" ] && { out_json "$TOGGLES_FILE" '{"ok":false}'; exit 1; }
+  [ -z "$dev" ] && { printf '%s' '{"ok":false}'; exit 1; }
   local s
   case "$what" in
     wifi)

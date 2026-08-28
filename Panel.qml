@@ -339,28 +339,27 @@ Panel {
     return [Math.round(nx * root.deviceW), Math.round(ny * root.deviceH)]
   }
 
-  // ── processes (triggers; output is read from state files via FileView) ─────
+  // ── processes (output is read from each process' stdout via StdioCollector) ──
   Process {
     id: statusProc
-    onExited: stateFile.reload()
+    stdout: StdioCollector { onStreamFinished: root.applyStatus(this.text) }
   }
 
   Process {
     id: connectProc
-    onExited: stateFile.reload()
+    stdout: StdioCollector { onStreamFinished: root.applyStatus(this.text) }
   }
 
   Process {
     id: cfgProc
     command: [root.scriptPath, "config", "dump"]
-    onExited: configFile.reload()
+    stdout: StdioCollector { onStreamFinished: root.parseConfig(this.text) }
   }
 
   Process {
     id: previewProc
     onExited: function(exitCode) {
       if (exitCode === 0) {
-        // image changed -> refresh (and accept the small live-update flicker)
         root.previewToken += 1
         root.previewSource = Util.fileUrl(root.previewPath) + "?" + root.previewToken
       } else if (exitCode === 3) {
@@ -375,62 +374,17 @@ Panel {
   Process {
     id: devicesProc
     command: [root.scriptPath, "devices"]
-    onExited: devicesFile.reload()
+    stdout: StdioCollector { onStreamFinished: root.parseDevices(this.text) }
   }
 
   Process {
     id: sysinfoProc
-    onExited: sysinfoFile.reload()
+    stdout: StdioCollector { onStreamFinished: root.applySysinfo(this.text) }
   }
 
   Process {
     id: togglesProc
-    onExited: togglesFile.reload()
-  }
-
-  FileView {
-    id: stateFile
-    path: runtimeDir + "/omadroid-state.json"
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.applyStatus(text())
-    onLoadFailed: root.applyStatus("")
-  }
-
-  FileView {
-    id: configFile
-    path: root.configPath
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.parseConfig(text())
-    onLoadFailed: root.parseConfig("")
-  }
-
-  FileView {
-    id: devicesFile
-    path: root.devicesPath
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.parseDevices(text())
-    onLoadFailed: root.parseDevices("[]")
-  }
-
-  FileView {
-    id: sysinfoFile
-    path: runtimeDir + "/omadroid-sysinfo.json"
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.applySysinfo(text())
-    onLoadFailed: root.applySysinfo("")
-  }
-
-  FileView {
-    id: togglesFile
-    path: runtimeDir + "/omadroid-toggles.json"
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.applyToggles(text())
-    onLoadFailed: root.applyToggles("")
+    stdout: StdioCollector { onStreamFinished: root.applyToggles(this.text) }
   }
 
   // ── timers ──────────────────────────────────────────────────────────────────
