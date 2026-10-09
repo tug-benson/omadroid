@@ -13,7 +13,8 @@ mark linking to the [plugin repository](https://github.com/tug-benson/omadroid).
   mini glyph keys (Connect ⇄ Disconnect, Wake, Back, Home, Recents,
   Power, Volume down/up), and four mini WiFi / BT / Data / Airplane
   tiles stacked on the right.
-  **Click the phone mock to open the interactive scrcpy window.**
+  **Click the phone mock (left side of the hero) to open
+  the interactive scrcpy window — it is the Open screen button.**
 - **CONNECTION** — USB / WiFi segmented pill with a sliding cursor and,
   on the same row, the WiFi IP field (in WiFi mode) or the active USB
   device (in USB mode, click to cycle through devices).
@@ -127,8 +128,9 @@ The widget appears in the `right` section of the bar (move it with
 
 1. Plug the phone in over USB and accept the ADB authorization.
 2. Click the 📱 icon → the panel shows the phone status.
-3. Click the **phone mock** in the hero card to launch the interactive
-   scrcpy window.
+3. Click the **phone mock** (left side of the hero card) to launch
+   the interactive scrcpy window — it acts as the Open screen button
+   (hover shows a tooltip).
 4. Unlock the phone physically, then use it like a window.
 
 **WiFi mode (optional):** in the panel, pick **WiFi**, enter the phone IP, click
