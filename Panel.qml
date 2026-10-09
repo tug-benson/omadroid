@@ -835,8 +835,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("wifi") ? Util.alpha("#2f81f7", 0.14) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("wifi") ? Util.alpha("#2f81f7", 0.55) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -844,13 +844,14 @@ Panel {
                   anchors.fill: parent
                   anchors.leftMargin: Style.space(6)
                   spacing: Style.space(4)
-                  Rectangle {
-                    width: Style.space(8)
-                    height: Style.space(8)
-                    radius: width / 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
-                  }
+                    Text {
+                      text: "\uDB81\uDDA9"
+                      color: root.toggleState("wifi") ? "#2f81f7" : Util.alpha(root.fg(), 0.35)
+                      font.family: root.iconFont
+                      font.pixelSize: Style.space(16)
+                      textFormat: Text.PlainText
+                      anchors.verticalCenter: parent.verticalCenter
+                    }
                   Text {
                     text: "WiFi"
                     color: root.fg()
@@ -871,8 +872,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                color: root.toggleState("bt") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: root.toggleState("bt") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("bt") ? Util.alpha("#39c5cf", 0.14) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("bt") ? Util.alpha("#39c5cf", 0.55) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -880,13 +881,14 @@ Panel {
                   anchors.fill: parent
                   anchors.leftMargin: Style.space(6)
                   spacing: Style.space(4)
-                  Rectangle {
-                    width: Style.space(8)
-                    height: Style.space(8)
-                    radius: width / 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.toggleState("bt") ? Color.accent : Util.alpha(root.fg(), 0.3)
-                  }
+                    Text {
+                      text: "\uDB80\uDCAF"
+                      color: root.toggleState("bt") ? "#39c5cf" : Util.alpha(root.fg(), 0.35)
+                      font.family: root.iconFont
+                      font.pixelSize: Style.space(16)
+                      textFormat: Text.PlainText
+                      anchors.verticalCenter: parent.verticalCenter
+                    }
                   Text {
                     text: "BT"
                     color: root.fg()
@@ -907,8 +909,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                color: root.toggleState("data") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: root.toggleState("data") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("data") ? Util.alpha("#3fb950", 0.14) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("data") ? Util.alpha("#3fb950", 0.55) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -916,13 +918,14 @@ Panel {
                   anchors.fill: parent
                   anchors.leftMargin: Style.space(6)
                   spacing: Style.space(4)
-                  Rectangle {
-                    width: Style.space(8)
-                    height: Style.space(8)
-                    radius: width / 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.toggleState("data") ? Color.accent : Util.alpha(root.fg(), 0.3)
-                  }
+                    Text {
+                      text: "\uF012"
+                      color: root.toggleState("data") ? "#3fb950" : Util.alpha(root.fg(), 0.35)
+                      font.family: root.iconFont
+                      font.pixelSize: Style.space(16)
+                      textFormat: Text.PlainText
+                      anchors.verticalCenter: parent.verticalCenter
+                    }
                   Text {
                     text: "Data"
                     color: root.fg()
@@ -943,8 +946,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                color: root.toggleState("airplane") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: root.toggleState("airplane") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("airplane") ? Util.alpha("#d29922", 0.14) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("airplane") ? Util.alpha("#d29922", 0.55) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -952,13 +955,14 @@ Panel {
                   anchors.fill: parent
                   anchors.leftMargin: Style.space(6)
                   spacing: Style.space(4)
-                  Rectangle {
-                    width: Style.space(8)
-                    height: Style.space(8)
-                    radius: width / 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.toggleState("airplane") ? Color.accent : Util.alpha(root.fg(), 0.3)
-                  }
+                    Text {
+                      text: "\uDB80\uDC1D"
+                      color: root.toggleState("airplane") ? "#d29922" : Util.alpha(root.fg(), 0.35)
+                      font.family: root.iconFont
+                      font.pixelSize: Style.space(16)
+                      textFormat: Text.PlainText
+                      anchors.verticalCenter: parent.verticalCenter
+                    }
                   Text {
                     text: "Airplane"
                     color: root.fg()
