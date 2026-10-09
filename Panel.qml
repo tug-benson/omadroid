@@ -799,7 +799,7 @@ Panel {
                 Repeater {
                   model: [
                     { action: "connect", key: "", icon: root.connected !== "none" ? "\uDB81\uDEA6" : "\uDB81\uDEA5", tip: root.busyConnect ? "Connecting…" : (root.connected !== "none" ? "Disconnect" : "Connect") },
-                    { action: "wake", key: "", icon: "\uF185", tip: "Wake" },
+                    { action: "wake", key: "", icon: "\uDB85\uDC40", tip: "Wake" },
                     { action: "key", key: "KEYCODE_BACK", icon: "\uDB80\uDC4D", tip: "Back" },
                     { action: "key", key: "KEYCODE_HOME", icon: "\uDB80\uDEDC", tip: "Home" },
                     { action: "key", key: "KEYCODE_APP_SWITCH", icon: "\uDB80\uDC3B", tip: "Recents" },
@@ -828,7 +828,7 @@ Panel {
             }
             Column {
               id: heroToggles
-              width: Style.space(104)
+              width: Style.space(94)
               spacing: Style.space(4)
               anchors.verticalCenter: parent.verticalCenter
               Rectangle {
