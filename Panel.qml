@@ -433,7 +433,7 @@ Panel {
       Column {
         id: content
         width: parent.width
-        spacing: Style.space(10)
+        spacing: Style.space(8)
 
         Row {
           spacing: Style.space(8)
@@ -516,12 +516,12 @@ Panel {
           Row {
             id: heroRow
             anchors.fill: parent
-            anchors.margins: Style.space(12)
+            anchors.margins: Style.space(10)
             spacing: Style.space(12)
 
             Rectangle {
-              width: Style.space(46)
-              height: Style.space(92)
+              width: Style.space(40)
+              height: Style.space(80)
               radius: Style.space(10)
               color: "#0d1117"
               border.color: Util.alpha(root.fg(), 0.35)
@@ -609,6 +609,37 @@ Panel {
                   anchors.verticalCenter: parent.verticalCenter
                 }
               }
+              Row {
+                spacing: Style.space(8)
+                Button {
+                  id: connectBtn
+                  text: root.connected !== "none" ? "Disconnect" : (root.busyConnect ? "Connecting" + chr(8230) : "Connect")
+                  tooltipText: "Connect or disconnect the phone"
+                  bordered: true
+                  foreground: root.fg()
+                  background: "transparent"
+                  fontSize: Style.font.bodySmall
+                  verticalPadding: Style.spacing.xs
+                  onClicked: root.connected !== "none" ? root.doDisconnect() : root.doConnect()
+                  SequentialAnimation on opacity {
+                    running: root.busyConnect
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 1.0; to: 0.55; duration: 700; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: 0.55; to: 1.0; duration: 700; easing.type: Easing.InOutSine }
+                    onRunningChanged: if (!running) connectBtn.opacity = 1.0
+                  }
+                }
+                Button {
+                  text: "Wake"
+                  tooltipText: "Turn the phone screen on"
+                  bordered: true
+                  foreground: root.fg()
+                  background: "transparent"
+                  fontSize: Style.font.bodySmall
+                  verticalPadding: Style.spacing.xs
+                  onClicked: root.doWake()
+                }
+              }
             }
           }
         }
@@ -622,92 +653,85 @@ Panel {
         }
 
         // Transport segmented pill with sliding cursor
-        Item {
-          width: parent.width
-          height: usbPillText.implicitHeight + Style.space(14)
-
-          Rectangle {
-            anchors.fill: parent
-            radius: height / 2
-            color: Util.alpha(root.fg(), 0.08)
-            border.color: Util.alpha(root.fg(), 0.16)
-            border.width: 1
-          }
-          Rectangle {
-            width: parent.width / 2 - Style.space(8)
-            height: parent.height - Style.space(8)
-            x: root.mode === "wifi" ? parent.width / 2 + Style.space(4) : Style.space(4)
-            y: Style.space(4)
-            radius: height / 2
-            color: Util.alpha(root.fg(), 0.22)
-            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-          }
-          Row {
-            anchors.fill: parent
-            Text {
-              id: usbPillText
-              width: parent.width / 2
-              height: parent.height
-              text: "USB"
-              color: root.fg()
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
-              font.bold: root.mode === "usb"
-              horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignVCenter
-              textFormat: Text.PlainText
-            }
-            Text {
-              width: parent.width / 2
-              height: parent.height
-              text: "WiFi"
-              color: root.fg()
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
-              font.bold: root.mode === "wifi"
-              horizontalAlignment: Text.AlignHCenter
-              verticalAlignment: Text.AlignVCenter
-              textFormat: Text.PlainText
-            }
-          }
-          Row {
-            anchors.fill: parent
-            Item {
-              width: parent.width / 2
-              height: parent.height
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.setMode("usb")
-              }
-            }
-            Item {
-              width: parent.width / 2
-              height: parent.height
-              MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.setMode("wifi")
-              }
-            }
-          }
-        }
-
-        // WiFi IP (only relevant in WiFi mode)
         Row {
-          visible: root.mode === "wifi"
-          spacing: Style.space(8)
           width: parent.width
-          Text {
-            text: "IP"
-            color: Util.alpha(root.fg(), 0.7)
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
-            anchors.verticalCenter: parent.verticalCenter
+          spacing: Style.space(8)
+          Item {
+            id: modePill
+            width: Style.space(150)
+            height: usbPillText.implicitHeight + Style.space(14)
+
+            Rectangle {
+              anchors.fill: parent
+              radius: height / 2
+              color: Util.alpha(root.fg(), 0.08)
+              border.color: Util.alpha(root.fg(), 0.16)
+              border.width: 1
+            }
+            Rectangle {
+              width: parent.width / 2 - Style.space(8)
+              height: parent.height - Style.space(8)
+              x: root.mode === "wifi" ? parent.width / 2 + Style.space(4) : Style.space(4)
+              y: Style.space(4)
+              radius: height / 2
+              color: Util.alpha(root.fg(), 0.22)
+              Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+            }
+            Row {
+              anchors.fill: parent
+              Text {
+                id: usbPillText
+                width: parent.width / 2
+                height: parent.height
+                text: "USB"
+                color: root.fg()
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.bold: root.mode === "usb"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                textFormat: Text.PlainText
+              }
+              Text {
+                width: parent.width / 2
+                height: parent.height
+                text: "WiFi"
+                color: root.fg()
+                font.family: Style.font.family
+                font.pixelSize: Style.font.body
+                font.bold: root.mode === "wifi"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                textFormat: Text.PlainText
+              }
+            }
+            Row {
+              anchors.fill: parent
+              Item {
+                width: parent.width / 2
+                height: parent.height
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.setMode("usb")
+                }
+              }
+              Item {
+                width: parent.width / 2
+                height: parent.height
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.setMode("wifi")
+                }
+              }
+            }
           }
           TextField {
             id: ipField
-            width: parent.width - Style.space(40)
+            visible: root.mode === "wifi"
+            width: parent.width - modePill.width - parent.spacing
+            anchors.verticalCenter: parent.verticalCenter
             foreground: root.fg()
             placeholderText: "192.168.1.x"
             text: root.wifiIp
@@ -716,6 +740,7 @@ Panel {
             onEditingFinished: root.saveConfig()
           }
         }
+
 
         // Device picker (chips wrap; selecting one aligns the mode)
         Flow {
@@ -747,46 +772,14 @@ Panel {
           wrapMode: Text.WordWrap
         }
 
-        Row {
-          spacing: Style.space(8)
-          width: parent.width
-          Button {
-            text: root.busyConnect ? "Connecting…" : "Connect"
-            id: connectBtn
-            tooltipText: "Connect the phone (USB, or WiFi if selected)"
-            bordered: true
-            foreground: root.fg()
-            background: "transparent"
-            SequentialAnimation on opacity {
-              running: root.busyConnect
-              loops: Animation.Infinite
-              NumberAnimation { from: 1.0; to: 0.55; duration: 700; easing.type: Easing.InOutSine }
-              NumberAnimation { from: 0.55; to: 1.0; duration: 700; easing.type: Easing.InOutSine }
-              onRunningChanged: if (!running) connectBtn.opacity = 1.0
-            }
-            onClicked: root.doConnect()
-          }
-          Button {
-            text: "Disconnect"
-            tooltipText: "Disconnect ADB and close our scrcpy window"
-            bordered: true
-            foreground: root.fg()
-            background: "transparent"
-            onClicked: root.doDisconnect()
-          }
-        }
 
         // ── SCREEN (primary action) ─────────────────────────────────
         PanelSeparator { foreground: root.fg() }
-        PanelSectionHeader {
-          text: "SCREEN"
-          foreground: root.fg()
-          fontFamily: Style.font.family
-        }
 
         Button {
           width: parent.width
-          text: "Open screen"
+          text: "\u25B6 Open screen"
+          verticalPadding: Style.spacing.xs
           tooltipText: "Launch the interactive scrcpy window"
           foreground: root.fg()
           background: "transparent"
@@ -796,29 +789,6 @@ Panel {
           onClicked: root.doOpen()
         }
 
-        Row {
-          spacing: Style.space(8)
-          width: parent.width
-          Button {
-            text: "Wake"
-            tooltipText: "Turn the phone screen on"
-            bordered: true
-            foreground: root.fg()
-            background: "transparent"
-            onClicked: root.doWake()
-          }
-          ButtonGroup {
-            options: [
-              { value: "1080", label: "1080p", tooltip: "Scrcpy window quality (~6–8″ equivalent)" },
-              { value: "720", label: "720p", tooltip: "Smaller, lighter scrcpy window" }
-            ]
-            value: String(root.maxSize)
-            foreground: root.fg()
-            background: "transparent"
-            focusable: false
-            onChanged: function(v) { root.maxSize = parseInt(v) || 1080; root.saveConfig() }
-          }
-        }
 
         // ── PHONE keys (collapsible, open by default) ───────────────
         PanelSeparator { foreground: root.fg() }
@@ -1058,7 +1028,7 @@ Panel {
         Rectangle {
           id: previewBox
           width: parent.width
-          height: root.previewExpanded ? Style.space(680) : Style.space(440)
+          height: root.previewExpanded ? Style.space(680) : Style.space(360)
           color: Util.alpha(root.fg(), 0.06)
           radius: Style.cornerRadius
           border.color: Util.alpha(root.fg(), 0.18)
@@ -1089,7 +1059,15 @@ Panel {
           }
 
 
+          MouseArea {
+            id: previewHover
+            anchors.fill: parent
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+          }
+
           Column {
+            visible: previewHover.containsMouse && root.previewSource !== ""
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: Style.space(8)

@@ -7,15 +7,15 @@ The widget shows a 📱 icon in the bar. Clicking it opens a panel
 organized in native Omarchy sections:
 
 - **Hero card** — phone mock with a softly pulsing halo (green = USB,
-  orange = WiFi, red = disconnected), device model, status and a
-  battery gauge.
-- **CONNECTION** — USB / WiFi segmented pill with a sliding cursor,
-  WiFi IP field, device chips (tapping one aligns the transport mode),
-  and **Connect** (pulses with a "Connecting…" state while ADB works) /
-  **Disconnect** buttons.
-- **SCREEN** — a full-width **Open screen** CTA that launches the
-  interactive scrcpy window, plus **Wake** and the 1080p / 720p
-  quality selector.
+  orange = WiFi, red = disconnected), device model, status, battery
+  gauge, and compact **Connect ⇄ Disconnect** (morphing button, pulses
+  with a "Connecting…" state while ADB works) + **Wake** actions.
+- **CONNECTION** — USB / WiFi segmented pill with a sliding cursor and,
+  in WiFi mode, the IP field on the same row. Device chips (tapping one
+  aligns the transport mode).
+- **Slim ▶ Open screen** CTA that launches the interactive scrcpy
+  window (1080p equivalent; quality is fixed to keep the panel compact —
+  override `max_size` in `~/.config/omarchy/omadroid.conf` if needed).
 - **PREVIEW** — a read-only auto-refreshing screenshot of the phone
   (rotate / expand / brightness / save-snapshot actions). All
   interaction happens in the scrcpy window.
@@ -158,7 +158,8 @@ that starts Omarchy to tune it. Pick any free key combo — change
 
 - **USB by default, WiFi optional** (remembers the last WiFi IP and mode).
 - **Auto-connect over WiFi** when you open the panel and an IP is known.
-- **Connecting… feedback** on the Connect button while ADB is working.
+- **Connecting… feedback**: the morphing Connect button pulses while
+  ADB is working.
 - **Multiple devices**: if several phones are detected, device chips let
   you choose which one to mirror (the transport mode follows the chip).
 - **Resolution toggle** for the scrcpy window: **1080p** / **720p**.
@@ -179,7 +180,7 @@ Settings (WiFi IP, max size, mode) are persisted to
 |---------|-------------|---------|
 | Mode | USB (default) or WiFi | `usb` |
 | WiFi IP | Phone address in WiFi mode | _(empty)_ |
-| Resolution | `--max-size` of the scrcpy window (`1080` or `720`) | `1080` |
+| Resolution | `--max-size` of the scrcpy window (config file only, no panel UI) | `1080` |
 
 ---
 
