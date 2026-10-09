@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "com.github.tug-benson.omadroid",
   "name": "Omadroid",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "tug-benson",
   "license": "MIT",
   "description": "Mirror and control an Android phone from the Omarchy bar via scrcpy/adb — USB by default, optional WiFi.",
