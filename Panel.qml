@@ -828,7 +828,7 @@ Panel {
             }
             Column {
               id: heroToggles
-              width: Style.space(94)
+              width: Style.space(86)
               spacing: Style.space(4)
               anchors.verticalCenter: parent.verticalCenter
               Rectangle {
@@ -842,8 +842,8 @@ Panel {
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Row {
                   anchors.fill: parent
-                  anchors.leftMargin: Style.space(8)
-                  spacing: Style.space(6)
+                  anchors.leftMargin: Style.space(6)
+                  spacing: Style.space(4)
                   Rectangle {
                     width: Style.space(8)
                     height: Style.space(8)
@@ -878,8 +878,8 @@ Panel {
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Row {
                   anchors.fill: parent
-                  anchors.leftMargin: Style.space(8)
-                  spacing: Style.space(6)
+                  anchors.leftMargin: Style.space(6)
+                  spacing: Style.space(4)
                   Rectangle {
                     width: Style.space(8)
                     height: Style.space(8)
@@ -914,8 +914,8 @@ Panel {
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Row {
                   anchors.fill: parent
-                  anchors.leftMargin: Style.space(8)
-                  spacing: Style.space(6)
+                  anchors.leftMargin: Style.space(6)
+                  spacing: Style.space(4)
                   Rectangle {
                     width: Style.space(8)
                     height: Style.space(8)
@@ -950,8 +950,8 @@ Panel {
                 Behavior on color { ColorAnimation { duration: 150 } }
                 Row {
                   anchors.fill: parent
-                  anchors.leftMargin: Style.space(8)
-                  spacing: Style.space(6)
+                  anchors.leftMargin: Style.space(6)
+                  spacing: Style.space(4)
                   Rectangle {
                     width: Style.space(8)
                     height: Style.space(8)
