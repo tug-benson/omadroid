@@ -12,6 +12,7 @@ Rectangle {
   property string tooltipText: ""
   property color foreground: Color.foreground
   property string fontFamily: Style.font.family
+  property real iconSize: Style.font.title
   property real size: Style.space(48)
 
   signal clicked()
@@ -34,7 +35,7 @@ Rectangle {
     text: root.iconText
     color: root.foreground
     font.family: root.fontFamily
-    font.pixelSize: Style.font.title
+    font.pixelSize: root.iconSize
   }
 
   MouseArea {

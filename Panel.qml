@@ -604,7 +604,7 @@ Panel {
             }
 
             Column {
-              width: parent.width - Style.space(40) - heroToggles.width - parent.spacing * 2
+              width: parent.width - Style.space(44) - heroToggles.width - parent.spacing * 2
               spacing: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
 
@@ -794,34 +794,35 @@ Panel {
                 }
               }
               Row {
-                spacing: Style.space(8)
-                Button {
-                  id: connectBtn
-                  text: root.connected !== "none" ? "Disconnect" : (root.busyConnect ? "Connecting" + chr(8230) : "Connect")
-                  tooltipText: "Connect or disconnect the phone"
-                  bordered: true
-                  foreground: root.fg()
-                  background: "transparent"
-                  fontSize: Style.font.bodySmall
-                  verticalPadding: Style.spacing.xs
-                  onClicked: root.connected !== "none" ? root.doDisconnect() : root.doConnect()
-                  SequentialAnimation on opacity {
-                    running: root.busyConnect
-                    loops: Animation.Infinite
-                    NumberAnimation { from: 1.0; to: 0.55; duration: 700; easing.type: Easing.InOutSine }
-                    NumberAnimation { from: 0.55; to: 1.0; duration: 700; easing.type: Easing.InOutSine }
-                    onRunningChanged: if (!running) connectBtn.opacity = 1.0
+                width: parent.width
+                spacing: Style.space(4)
+                Repeater {
+                  model: [
+                    { action: "connect", key: "", icon: root.connected !== "none" ? "\uDB81\uDEA6" : "\uDB81\uDEA5", tip: root.busyConnect ? "Connecting…" : (root.connected !== "none" ? "Disconnect" : "Connect") },
+                    { action: "wake", key: "", icon: "\uF185", tip: "Wake" },
+                    { action: "key", key: "KEYCODE_BACK", icon: "\uDB80\uDC4D", tip: "Back" },
+                    { action: "key", key: "KEYCODE_HOME", icon: "\uDB80\uDEDC", tip: "Home" },
+                    { action: "key", key: "KEYCODE_APP_SWITCH", icon: "\uDB80\uDC3B", tip: "Recents" },
+                    { action: "key", key: "KEYCODE_POWER", icon: "\uDB81\uDC25", tip: "Power" },
+                    { action: "key", key: "KEYCODE_VOLUME_DOWN", icon: "\uDB81\uDF5E", tip: "Volume down" },
+                    { action: "key", key: "KEYCODE_VOLUME_UP", icon: "\uDB81\uDF5D", tip: "Volume up" }
+                  ]
+                  RoundButton {
+                    size: Style.space(26)
+                    iconSize: Style.space(15)
+                    iconText: modelData.icon
+                    tooltipText: modelData.tip
+                    fontFamily: root.iconFont
+                    foreground: root.fg()
+                    opacity: (modelData.action === "connect" && root.busyConnect) ? 0.55 : 1.0
+                    onClicked: {
+                      if (modelData.action === "connect") {
+                        if (root.connected !== "none") root.doDisconnect()
+                        else root.doConnect()
+                      } else if (modelData.action === "wake") root.doWake()
+                      else root.sendKey(modelData.key)
+                    }
                   }
-                }
-                Button {
-                  text: "Wake"
-                  tooltipText: "Turn the phone screen on"
-                  bordered: true
-                  foreground: root.fg()
-                  background: "transparent"
-                  fontSize: Style.font.bodySmall
-                  verticalPadding: Style.spacing.xs
-                  onClicked: root.doWake()
                 }
               }
             }
@@ -1110,40 +1111,6 @@ Panel {
         // ── SCREEN (primary action) ─────────────────────────────────
 
 
-        // ── PHONE keys (collapsible, open by default) ───────────────
-        PanelSeparator { foreground: root.fg() }
-        PanelSectionHeader {
-          text: "PHONE"
-          foreground: root.fg()
-          fontFamily: Style.font.family
-        }
-        Row {
-          width: parent.width
-          spacing: Style.space(8)
-          Repeater {
-            model: [
-              { key: "KEYCODE_BACK", icon: "\uDB80\uDC4D", tip: "Back" },
-              { key: "KEYCODE_HOME", icon: "\uDB80\uDEDC", tip: "Home" },
-              { key: "KEYCODE_APP_SWITCH", icon: "\uDB80\uDC3B", tip: "Recents" },
-              { key: "KEYCODE_POWER", icon: "\uDB81\uDC25", tip: "Power" },
-              { key: "KEYCODE_VOLUME_DOWN", icon: "\uDB81\uDF5E", tip: "Volume down" },
-              { key: "KEYCODE_VOLUME_UP", icon: "\uDB81\uDF5D", tip: "Volume up" }
-            ]
-            Item {
-              width: (parent.width - parent.spacing * 5) / 6
-              height: Style.space(48)
-              RoundButton {
-                anchors.centerIn: parent
-                size: Style.space(48)
-                iconText: modelData.icon
-                tooltipText: modelData.tip
-                fontFamily: root.iconFont
-                foreground: root.fg()
-                onClicked: root.sendKey(modelData.key)
-              }
-            }
-          }
-        }
 
 
 

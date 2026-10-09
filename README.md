@@ -9,10 +9,10 @@ mark linking to the [plugin repository](https://github.com/tug-benson/omadroid).
 
 - **Hero card** — phone mock with a softly pulsing halo (green = USB,
   orange = WiFi, red = disconnected), device model, status, four slim
-  BAT / RAM / CPU / DISK gauges (turn red when critical), compact
-  **Connect ⇄ Disconnect** (morphing button, pulses with a
-  "Connecting…" state while ADB works) + **Wake** actions, and four
-  mini WiFi / BT / Data / Airplane tiles stacked on the right.
+  BAT / RAM / CPU / DISK gauges (turn red when critical), a row of 8
+  mini glyph keys (Connect ⇄ Disconnect, Wake, Back, Home, Recents,
+  Power, Volume down/up), and four mini WiFi / BT / Data / Airplane
+  tiles stacked on the right.
   **Click the phone mock to open the interactive scrcpy window.**
 - **CONNECTION** — USB / WiFi segmented pill with a sliding cursor and,
   on the same row, the WiFi IP field (in WiFi mode) or the active USB
@@ -24,10 +24,6 @@ mark linking to the [plugin repository](https://github.com/tug-benson/omadroid).
   auto-refreshing screenshot of the phone (rotate / expand /
   brightness / save-snapshot actions, revealed on hover). All
   interaction happens in the scrcpy window.
-- **PHONE** (always visible, above the preview) — Back / Home /
-  Recents / Power / Volume as circular icon buttons with tooltips
-  and press micro-scale.
-
 The last used WiFi IP and mode are remembered between sessions.
 
 > Unlocking the screen is done physically (fingerprint / PIN) on the device.
