@@ -803,9 +803,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                property bool tileOn: root.toggleState("wifi")
-                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -818,7 +817,7 @@ Panel {
                     height: Style.space(8)
                     radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
                   }
                   Text {
                     text: "WiFi"
@@ -840,9 +839,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                property bool tileOn: root.toggleState("bt")
-                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -855,7 +853,7 @@ Panel {
                     height: Style.space(8)
                     radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
                   }
                   Text {
                     text: "BT"
@@ -877,9 +875,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                property bool tileOn: root.toggleState("data")
-                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -892,7 +889,7 @@ Panel {
                     height: Style.space(8)
                     radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
                   }
                   Text {
                     text: "Data"
@@ -914,9 +911,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                property bool tileOn: root.toggleState("airplane")
-                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -929,7 +925,7 @@ Panel {
                     height: Style.space(8)
                     radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
                   }
                   Text {
                     text: "Airplane"
