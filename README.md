@@ -6,11 +6,12 @@ right from the bar, using **scrcpy** and **ADB**.
 The widget shows a 📱 icon in the bar. Clicking it opens a panel
 organized in native Omarchy sections:
 
-- **Status card** — connection dot, status text and battery level
-  (green = USB, orange = WiFi, red = disconnected).
-- **CONNECTION** — USB / WiFi segmented control, WiFi IP field,
-  device chips (tapping one aligns the transport mode), and
-  **Connect** (shows a "Connecting…" state while ADB works) /
+- **Hero card** — phone mock with a softly pulsing halo (green = USB,
+  orange = WiFi, red = disconnected), device model, status and a
+  battery gauge.
+- **CONNECTION** — USB / WiFi segmented pill with a sliding cursor,
+  WiFi IP field, device chips (tapping one aligns the transport mode),
+  and **Connect** (pulses with a "Connecting…" state while ADB works) /
   **Disconnect** buttons.
 - **SCREEN** — a full-width **Open screen** CTA that launches the
   interactive scrcpy window, plus **Wake** and the 1080p / 720p
@@ -20,9 +21,9 @@ organized in native Omarchy sections:
   interaction happens in the scrcpy window.
 - **PHONE** (collapsible, open by default) — Back / Home / Recents /
   Power / Volume keys.
-- **DEVICE** (collapsible, closed by default) — RAM / CPU / storage
-  cards (hidden while disconnected) and WiFi / Bluetooth / mobile
-  data / airplane-mode toggles.
+- **DEVICE** (collapsible with animated open/close, closed by default) —
+  RAM / CPU / storage cards (hidden while disconnected) and glowing
+  WiFi / Bluetooth / mobile data / airplane-mode tiles.
 
 The last used WiFi IP and mode are remembered between sessions.
 

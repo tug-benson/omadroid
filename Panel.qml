@@ -21,6 +21,8 @@ Panel {
   property string battery: ""
   property bool busyConnect: false
   readonly property bool canInteract: root.connected !== "none" || root.selectedSerial !== ""
+  property string deviceModel: ""
+  readonly property real battFrac: Math.max(0, Math.min(1, (parseInt(root.battery) || 0) / 100))
   property string previewSource: ""
   property int previewToken: 0
   readonly property string previewPath: runtimeDir + "/omadroid-preview.png"
@@ -71,6 +73,18 @@ Panel {
   }
 
   function fg() { return root.barForeground ? root.barForeground : "#ffffff" }
+  function glowColor() {
+    if (root.connected === "usb") return "#30a46c"
+    if (root.connected === "wifi") return "#f5a623"
+    return "#e5484d"
+  }
+
+  function toggleState(k) {
+    if (k === "wifi") return root.toggleWifi
+    if (k === "bt") return root.toggleBt
+    if (k === "data") return root.toggleData
+    return root.toggleAirplane
+  }
 
   // ── actions ────────────────────────────────────────────────────────────────
   function refreshStatus() {
@@ -89,6 +103,7 @@ Panel {
       root.connected = s.connected || "none"
       root.battery = s.battery || ""
       root.deviceW = parseInt(s.w) || 1080
+      root.deviceModel = s.model || ""
       root.deviceH = parseInt(s.h) || 2340
       if (root.connected === "usb")
         root.statusText = "Connected (USB)" + (s.model ? " — " + s.model : "")
@@ -141,6 +156,7 @@ Panel {
     root.connected = "none"
     root.statusText = "Not connected"
     root.battery = ""
+    root.deviceModel = ""
     root.previewSource = ""
     root.refreshStatus()
   }
@@ -469,48 +485,130 @@ Panel {
           }
         }
 
-        // ── Status card (full width, wraps instead of eliding) ──
+        // -- Hero (device at a glance) --
         Rectangle {
           width: parent.width
-          height: statusRow.implicitHeight + Style.space(16)
-          radius: Style.cornerRadius
-          color: Util.alpha(root.fg(), 0.06)
-          border.color: Util.alpha(root.fg(), 0.18)
+          height: heroRow.implicitHeight + Style.space(24)
+          radius: Style.cornerRadius * 1.5
+          color: Util.alpha(root.fg(), 0.05)
+          border.color: Util.alpha(root.fg(), 0.16)
           border.width: 1
-          Row {
-            id: statusRow
+
+          Rectangle {
+            id: heroGlow
             anchors.fill: parent
-            anchors.margins: Style.space(8)
-            spacing: Style.space(8)
+            anchors.margins: -Style.space(4)
+            radius: parent.radius + Style.space(4)
+            color: "transparent"
+            border.color: root.glowColor()
+            border.width: 2
+            opacity: 0.25
+            z: -1
+            SequentialAnimation on opacity {
+              running: root.connected !== "none"
+              loops: Animation.Infinite
+              NumberAnimation { from: 0.3; to: 0.65; duration: 1600; easing.type: Easing.InOutSine }
+              NumberAnimation { from: 0.65; to: 0.3; duration: 1600; easing.type: Easing.InOutSine }
+              onRunningChanged: if (!running) heroGlow.opacity = 0.25
+            }
+          }
+
+          Row {
+            id: heroRow
+            anchors.fill: parent
+            anchors.margins: Style.space(12)
+            spacing: Style.space(12)
+
             Rectangle {
-              id: statusDot
-              width: Style.space(12)
-              height: Style.space(12)
-              radius: width / 2
+              width: Style.space(46)
+              height: Style.space(92)
+              radius: Style.space(10)
+              color: "#0d1117"
+              border.color: Util.alpha(root.fg(), 0.35)
+              border.width: 2
               anchors.verticalCenter: parent.verticalCenter
-              color: root.connected === "none" ? "#e5484d"
-                   : (root.connected === "usb" ? "#30a46c" : "#f5a623")
+
+              Rectangle {
+                anchors.fill: parent
+                anchors.margins: Style.space(5)
+                radius: Style.space(6)
+                color: root.connected === "none" ? Util.alpha(root.fg(), 0.06) : Util.alpha(root.glowColor(), 0.4)
+                Behavior on color { ColorAnimation { duration: 300 } }
+              }
+              Rectangle {
+                width: Style.space(16)
+                height: Style.space(4)
+                radius: Style.space(2)
+                anchors.top: parent.top
+                anchors.topMargin: Style.space(8)
+                anchors.horizontalCenter: parent.horizontalCenter
+                color: Util.alpha(root.fg(), 0.35)
+              }
             }
-            Text {
-              text: root.statusText
-              color: root.fg()
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
-              font.bold: true
-              textFormat: Text.PlainText
-              wrapMode: Text.WordWrap
-              width: parent.width - statusDot.width - parent.spacing * 2 - (batteryText.visible ? batteryText.width : 0)
+
+            Column {
+              width: parent.width - Style.space(46) - parent.spacing
+              spacing: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
-            }
-            Text {
-              id: batteryText
-              visible: root.battery !== ""
-              text: "\uDB80\uDC79 " + root.battery + "%"
-              color: root.fg()
-              font.family: Style.font.family
-              font.pixelSize: Style.font.body
-              textFormat: Text.PlainText
-              anchors.verticalCenter: parent.verticalCenter
+
+              Text {
+                width: parent.width
+                text: root.deviceModel !== "" ? root.deviceModel : "No phone connected"
+                color: root.fg()
+                font.family: Style.font.family
+                font.pixelSize: Style.font.subtitle
+                font.bold: true
+                textFormat: Text.PlainText
+                elide: Text.ElideRight
+              }
+
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+                Rectangle {
+                  width: Style.space(10)
+                  height: Style.space(10)
+                  radius: width / 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: root.glowColor()
+                }
+                Text {
+                  width: parent.width - Style.space(18)
+                  text: root.statusText
+                  color: Util.alpha(root.fg(), 0.85)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.body
+                  textFormat: Text.PlainText
+                  wrapMode: Text.WordWrap
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
+
+              Row {
+                visible: root.battery !== ""
+                spacing: Style.space(8)
+                Rectangle {
+                  width: Style.space(110)
+                  height: Style.space(8)
+                  radius: height / 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: Util.alpha(root.fg(), 0.15)
+                  Rectangle {
+                    width: parent.width * root.battFrac
+                    height: parent.height
+                    radius: parent.radius
+                    color: root.glowColor()
+                  }
+                }
+                Text {
+                  text: root.battery + "%"
+                  color: Util.alpha(root.fg(), 0.85)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
             }
           }
         }
@@ -523,16 +621,76 @@ Panel {
           fontFamily: Style.font.family
         }
 
-        ButtonGroup {
-          options: [
-            { value: "usb", label: "USB", tooltip: "Wired connection (default, most secure)" },
-            { value: "wifi", label: "WiFi", tooltip: "Wireless ADB (opt-in)" }
-          ]
-          value: root.mode
-          foreground: root.fg()
-          background: "transparent"
-          focusable: false
-          onChanged: function(v) { root.setMode(v) }
+        // Transport segmented pill with sliding cursor
+        Item {
+          width: parent.width
+          height: usbPillText.implicitHeight + Style.space(14)
+
+          Rectangle {
+            anchors.fill: parent
+            radius: height / 2
+            color: Util.alpha(root.fg(), 0.08)
+            border.color: Util.alpha(root.fg(), 0.16)
+            border.width: 1
+          }
+          Rectangle {
+            width: parent.width / 2 - Style.space(8)
+            height: parent.height - Style.space(8)
+            x: root.mode === "wifi" ? parent.width / 2 + Style.space(4) : Style.space(4)
+            y: Style.space(4)
+            radius: height / 2
+            color: Util.alpha(root.fg(), 0.22)
+            Behavior on x { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+          }
+          Row {
+            anchors.fill: parent
+            Text {
+              id: usbPillText
+              width: parent.width / 2
+              height: parent.height
+              text: "USB"
+              color: root.fg()
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              font.bold: root.mode === "usb"
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+              textFormat: Text.PlainText
+            }
+            Text {
+              width: parent.width / 2
+              height: parent.height
+              text: "WiFi"
+              color: root.fg()
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              font.bold: root.mode === "wifi"
+              horizontalAlignment: Text.AlignHCenter
+              verticalAlignment: Text.AlignVCenter
+              textFormat: Text.PlainText
+            }
+          }
+          Row {
+            anchors.fill: parent
+            Item {
+              width: parent.width / 2
+              height: parent.height
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.setMode("usb")
+              }
+            }
+            Item {
+              width: parent.width / 2
+              height: parent.height
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.setMode("wifi")
+              }
+            }
+          }
         }
 
         // WiFi IP (only relevant in WiFi mode)
@@ -594,10 +752,18 @@ Panel {
           width: parent.width
           Button {
             text: root.busyConnect ? "Connecting…" : "Connect"
+            id: connectBtn
             tooltipText: "Connect the phone (USB, or WiFi if selected)"
             bordered: true
             foreground: root.fg()
             background: "transparent"
+            SequentialAnimation on opacity {
+              running: root.busyConnect
+              loops: Animation.Infinite
+              NumberAnimation { from: 1.0; to: 0.55; duration: 700; easing.type: Easing.InOutSine }
+              NumberAnimation { from: 0.55; to: 1.0; duration: 700; easing.type: Easing.InOutSine }
+              onRunningChanged: if (!running) connectBtn.opacity = 1.0
+            }
             onClicked: root.doConnect()
           }
           Button {
@@ -681,10 +847,15 @@ Panel {
           }
         }
 
-        Column {
+        Item {
           width: parent.width
-          spacing: Style.space(6)
-          visible: phoneHead.open
+          height: phoneHead.open ? phoneBody.height : 0
+          clip: true
+          Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+          Column {
+            id: phoneBody
+            width: parent.width
+            spacing: Style.space(6)
           Row {
             width: parent.width
             spacing: Style.space(6)
@@ -696,8 +867,9 @@ Panel {
             Button { iconText: "\uDB81\uDF5D"; tooltipText: "Volume up"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
           }
         }
+        }
 
-        // ── DEVICE (collapsible, closed by default) ───────────────────
+        // -- DEVICE (collapsible, closed by default) ───────────────────
         PanelSeparator { foreground: root.fg() }
         Row {
           id: deviceHead
@@ -724,10 +896,15 @@ Panel {
           }
         }
 
-        Column {
+        Item {
           width: parent.width
-          spacing: Style.space(6)
-          visible: deviceHead.open
+          height: deviceHead.open ? deviceBody.height : 0
+          clip: true
+          Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+          Column {
+            id: deviceBody
+            width: parent.width
+            spacing: Style.space(6)
 
           // Device system stats (RAM / CPU / storage) — hidden when offline
           Row {
@@ -795,56 +972,71 @@ Panel {
               fontFamily: Style.font.family
             }
 
-          Row {
+          Grid {
+            id: tileGrid
             width: parent.width
+            columns: 2
             spacing: Style.space(8)
-
-            Column {
-              width: (parent.width - parent.spacing) / 2
-              spacing: Style.space(6)
-              Toggle {
-                width: parent.width
-                label: "WiFi"
-                checked: root.toggleWifi
-                foreground: root.fg()
-                fontFamily: Style.font.family
-                onClicked: root.doToggle("wifi")
-              }
-              Toggle {
-                width: parent.width
-                label: "Bluetooth"
-                checked: root.toggleBt
-                foreground: root.fg()
-                fontFamily: Style.font.family
-                onClicked: root.doToggle("bt")
-              }
-            }
-
-            Column {
-              width: (parent.width - parent.spacing) / 2
-              spacing: Style.space(6)
-              Toggle {
-                width: parent.width
-                label: "Mobile data"
-                checked: root.toggleData
-                foreground: root.fg()
-                fontFamily: Style.font.family
-                onClicked: root.doToggle("data")
-              }
-              Toggle {
-                width: parent.width
-                label: "Airplane mode"
-                checked: root.toggleAirplane
-                foreground: root.fg()
-                fontFamily: Style.font.family
-                onClicked: root.doToggle("airplane")
+            Repeater {
+              model: [
+                { key: "wifi", label: "WiFi" },
+                { key: "bt", label: "Bluetooth" },
+                { key: "data", label: "Mobile data" },
+                { key: "airplane", label: "Airplane" }
+              ]
+              Rectangle {
+                width: (tileGrid.width - tileGrid.spacing) / 2
+                height: Style.space(66)
+                radius: Style.cornerRadius
+                property bool tileOn: root.toggleState(modelData.key)
+                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                border.width: 1
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Column {
+                  anchors.fill: parent
+                  anchors.margins: Style.space(10)
+                  spacing: Style.space(2)
+                  Row {
+                    spacing: Style.space(8)
+                    Rectangle {
+                      width: Style.space(8)
+                      height: Style.space(8)
+                      radius: width / 2
+                      anchors.verticalCenter: parent.verticalCenter
+                      color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    }
+                    Text {
+                      text: modelData.label
+                      color: root.fg()
+                      font.family: Style.font.family
+                      font.pixelSize: Style.font.body
+                      font.bold: true
+                      textFormat: Text.PlainText
+                      anchors.verticalCenter: parent.verticalCenter
+                    }
+                  }
+                  Text {
+                    text: tileOn ? "On" : "Off"
+                    color: Util.alpha(root.fg(), 0.6)
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.caption
+                    textFormat: Text.PlainText
+                  }
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.doToggle(modelData.key)
+                }
               }
             }
           }
         }
         }
+        }
 
-        // ── PREVIEW (read-only — use Open screen to interact) ────
+        // -- PREVIEW (read-only — use Open screen to interact) ────
         PanelSeparator { foreground: root.fg() }
         PanelSectionHeader {
           text: "PREVIEW"
