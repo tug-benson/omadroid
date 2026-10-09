@@ -481,12 +481,19 @@ Panel {
             color: root.fg()
             font.family: root.iconFont
             font.pixelSize: Style.space(34)
-            transformOrigin: Item.Center
-            RotationAnimation on rotation {
-              from: 0
-              to: 360
-              duration: 6000
+            transform: Rotation {
+              id: flipRot
+              origin.x: titleGlyph.width / 2
+              origin.y: titleGlyph.height / 2
+              axis.x: 0
+              axis.y: 1
+              axis.z: 0
+              angle: 0
+            }
+            SequentialAnimation {
               loops: Animation.Infinite
+              running: true
+              NumberAnimation { target: flipRot; property: "angle"; from: 0; to: 360; duration: 2800 }
             }
           }
           Column {
