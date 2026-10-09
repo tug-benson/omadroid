@@ -13,13 +13,14 @@ Panel {
   property var hostWidget: null
 
   // ── state ────────────────────────────────────────────────────────────────
-  property string glyph: "📱"
   property string mode: "usb"            // "usb" | "wifi"
   property string wifiIp: ""
   property int maxSize: 1080
   property string connected: "none"      // "none" | "usb" | "wifi"
   property string statusText: "Not connected"
   property string battery: ""
+  property bool busyConnect: false
+  readonly property bool canInteract: root.connected !== "none" || root.selectedSerial !== ""
   property string previewSource: ""
   property int previewToken: 0
   readonly property string previewPath: runtimeDir + "/omadroid-preview.png"
@@ -48,7 +49,6 @@ Panel {
   property string scriptPath: localPath(Qt.resolvedUrl("scripts/omadroid.sh"))
   readonly property string configPath: (Quickshell.env("XDG_CONFIG_HOME") || (Quickshell.env("HOME") + "/.config")) + "/omarchy/omadroid.conf"
   readonly property string runtimeDir: (Quickshell.env("XDG_RUNTIME_DIR") || ((Quickshell.env("HOME") || "/tmp") + "/.cache")) + "/omadroid"
-  readonly property string devicesPath: runtimeDir + "/omadroid-devices.json"
 
   function open() {
     root.controller.show()
@@ -83,6 +83,7 @@ Panel {
 
   function applyStatus(text) {
     if (!text) return
+    root.busyConnect = false
     try {
       var s = JSON.parse(text.trim())
       root.connected = s.connected || "none"
@@ -104,6 +105,8 @@ Panel {
   function doConnect() {
     root.saveConfig()
     if (connectProc.running) return
+    root.busyConnect = true
+    root.statusText = "Connecting…"
     var args = [root.scriptPath, "connect"]
     if (root.mode === "wifi") {
       args.push("--wifi")
@@ -226,7 +229,7 @@ Panel {
             if (root.devices.get(j).serial === root.selectedSerial) { found = true; break }
           }
         }
-        if (!found) root.selectDevice(root.devices.get(0).serial)
+        if (!found) root.selectDevice(root.devices.get(0).serial, false)
       } else {
         root.selectedSerial = ""
       }
@@ -235,8 +238,17 @@ Panel {
     }
   }
 
-  function selectDevice(serial) {
+  // fromUser=true (explicit tap on a device chip) also aligns the
+  // transport mode with the device, so the two selectors never disagree.
+  function selectDevice(serial, fromUser) {
     root.selectedSerial = serial
+    if (fromUser === true && serial) {
+      var want = (serial.indexOf(":") >= 0) ? "wifi" : "usb"
+      if (root.mode !== want) {
+        root.mode = want
+        root.saveConfig()
+      }
+    }
     root.refreshStatus()
     root.refreshPreview()
     root.refreshToggles()
@@ -254,9 +266,9 @@ Panel {
       var kv = lines[i].split("=")
       if (kv.length < 2) continue
       var k = kv[0].trim(), v = kv[1].trim()
-      if (k === "wifi_ip") { root.wifiIp = v; if (ipInput) ipInput.text = v }
+      if (k === "wifi_ip") { root.wifiIp = v; if (ipField) ipField.text = v }
       else if (k === "max_size") { root.maxSize = parseInt(v) || 1080 }
-      else if (k === "mode") { root.mode = (v === "wifi") ? "wifi" : "usb"; syncModeButtons() }
+      else if (k === "mode") { root.mode = (v === "wifi") ? "wifi" : "usb" }
     }
   }
 
@@ -279,16 +291,10 @@ Panel {
       }
       root.selectedSerial = chosen
     }
-    syncModeButtons()
     root.saveConfig()
     root.refreshStatus()
     root.refreshPreview()
     root.refreshToggles()
-  }
-
-  function syncModeButtons() {
-    usbBtn.active = (root.mode === "usb")
-    wifiBtn.active = (root.mode === "wifi")
   }
 
   function rotatePreview() {
@@ -307,38 +313,6 @@ Panel {
     Quickshell.execDetached([root.scriptPath, "save"])
   }
 
-  function sendSwipe(x1, y1, x2, y2, dur) {
-    if (root.connected === "none" && !root.selectedSerial) return
-    var args = [root.scriptPath, "swipe", "" + x1, "" + y1, "" + x2, "" + y2, "" + dur]
-    if (root.selectedSerial) args.push("--serial", root.selectedSerial)
-    Quickshell.execDetached(args)
-  }
-
-  // Map a click position (in preview-box coordinates) to device screen
-  // coordinates, undoing the preview rotation and the aspect-fit letterboxing.
-  function previewToDevice(mx, my) {
-    var boxW = previewBox.width, boxH = previewBox.height
-    var px = mx - boxW / 2, py = my - boxH / 2
-    var ux, uy, r = root.previewRotation
-    if (r === 0)      { ux = px;        uy = py }
-    else if (r === 90)  { ux = -py;       uy = px }
-    else if (r === 180) { ux = -px;       uy = -py }
-    else                { ux = py;        uy = -px }
-    var x2 = ux + boxW / 2, y2 = uy + boxH / 2
-
-    var imgAspect = (root.deviceW && root.deviceH) ? (root.deviceW / root.deviceH) : (1080 / 2340)
-    var boxAspect = boxW / boxH
-    var pixW, pixH, offX, offY
-    if (boxAspect > imgAspect) {
-      pixH = boxH; pixW = boxH * imgAspect; offX = (boxW - pixW) / 2; offY = 0
-    } else {
-      pixW = boxW; pixH = boxW / imgAspect; offX = 0; offY = (boxH - pixH) / 2
-    }
-    var nx = (x2 - offX) / pixW, ny = (y2 - offY) / pixH
-    nx = Math.max(0, Math.min(1, nx)); ny = Math.max(0, Math.min(1, ny))
-    return [Math.round(nx * root.deviceW), Math.round(ny * root.deviceH)]
-  }
-
   // ── processes (output is read from each process' stdout via StdioCollector) ──
   Process {
     id: statusProc
@@ -348,6 +322,8 @@ Panel {
   Process {
     id: connectProc
     stdout: StdioCollector { onStreamFinished: root.applyStatus(this.text) }
+    // Safety net: a failing helper may exit without usable stdout.
+    onExited: root.busyConnect = false
   }
 
   Process {
@@ -493,54 +469,70 @@ Panel {
           }
         }
 
-        // Mode selector + live status (same line)
-        Row {
-          spacing: Style.space(8)
+        // ── Status card (full width, wraps instead of eliding) ──
+        Rectangle {
           width: parent.width
+          height: statusRow.implicitHeight + Style.space(16)
+          radius: Style.cornerRadius
+          color: Util.alpha(root.fg(), 0.06)
+          border.color: Util.alpha(root.fg(), 0.18)
+          border.width: 1
           Row {
-            id: modeRow
+            id: statusRow
+            anchors.fill: parent
+            anchors.margins: Style.space(8)
             spacing: Style.space(8)
-            PanelButton {
-              id: usbBtn
-              label: "USB"
-              fg: root.fg()
-              active: root.mode === "usb"
-              onClicked: root.setMode("usb")
+            Rectangle {
+              id: statusDot
+              width: Style.space(12)
+              height: Style.space(12)
+              radius: width / 2
+              anchors.verticalCenter: parent.verticalCenter
+              color: root.connected === "none" ? "#e5484d"
+                   : (root.connected === "usb" ? "#30a46c" : "#f5a623")
             }
-            PanelButton {
-              id: wifiBtn
-              label: "WiFi"
-              fg: root.fg()
-              active: root.mode === "wifi"
-              onClicked: root.setMode("wifi")
+            Text {
+              text: root.statusText
+              color: root.fg()
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              font.bold: true
+              textFormat: Text.PlainText
+              wrapMode: Text.WordWrap
+              width: parent.width - statusDot.width - parent.spacing * 2 - (batteryText.visible ? batteryText.width : 0)
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            Text {
+              id: batteryText
+              visible: root.battery !== ""
+              text: "\uDB80\uDC79 " + root.battery + "%"
+              color: root.fg()
+              font.family: Style.font.family
+              font.pixelSize: Style.font.body
+              textFormat: Text.PlainText
+              anchors.verticalCenter: parent.verticalCenter
             }
           }
-          Rectangle {
-            width: Style.space(12)
-            height: Style.space(12)
-            radius: width / 2
-            anchors.verticalCenter: parent.verticalCenter
-            color: root.connected === "none" ? "#e5484d"
-                 : (root.connected === "usb" ? "#30a46c" : "#f5a623")
-          }
-          Text {
-            visible: root.battery !== ""
-            text: "\uDB80\uDC79 " + root.battery + "%"
-            color: root.fg()
-            font.family: root.iconFont
-            font.pixelSize: Style.font.caption
-            anchors.verticalCenter: parent.verticalCenter
-          }
-          Text {
-            text: root.statusText
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.caption
-            textFormat: Text.PlainText
-            elide: Text.ElideRight
-            width: Math.max(Style.space(40), parent.width - modeRow.width - Style.space(70))
-            anchors.verticalCenter: parent.verticalCenter
-          }
+        }
+
+        // ── CONNECTION ──────────────────────────────────────────────
+        PanelSeparator { foreground: root.fg() }
+        PanelSectionHeader {
+          text: "CONNECTION"
+          foreground: root.fg()
+          fontFamily: Style.font.family
+        }
+
+        ButtonGroup {
+          options: [
+            { value: "usb", label: "USB", tooltip: "Wired connection (default, most secure)" },
+            { value: "wifi", label: "WiFi", tooltip: "Wireless ADB (opt-in)" }
+          ]
+          value: root.mode
+          foreground: root.fg()
+          background: "transparent"
+          focusable: false
+          onChanged: function(v) { root.setMode(v) }
         }
 
         // WiFi IP (only relevant in WiFi mode)
@@ -550,91 +542,258 @@ Panel {
           width: parent.width
           Text {
             text: "IP"
-            color: root.fg()
+            color: Util.alpha(root.fg(), 0.7)
             font.family: Style.font.family
             font.pixelSize: Style.font.body
             anchors.verticalCenter: parent.verticalCenter
           }
-          TextInput {
-            id: ipInput
+          TextField {
+            id: ipField
             width: parent.width - Style.space(40)
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.body
+            foreground: root.fg()
+            placeholderText: "192.168.1.x"
             text: root.wifiIp
             onTextChanged: root.wifiIp = text
             onAccepted: root.saveConfig()
-            Rectangle {
-              anchors.fill: parent
-              color: "transparent"
-              border.color: Util.alpha(root.fg(), 0.25)
-              border.width: 1
-              radius: Style.cornerRadius
-              z: -1
+            onEditingFinished: root.saveConfig()
+          }
+        }
+
+        // Device picker (chips wrap; selecting one aligns the mode)
+        Flow {
+          visible: root.devices.count > 0
+          width: parent.width
+          spacing: Style.space(8)
+          Repeater {
+            model: root.devices
+            Button {
+              text: (model.transport === "wifi" ? "WiFi · " : "USB · ") + (model.name || model.serial)
+              tooltipText: model.serial
+              bordered: true
+              foreground: root.fg()
+              background: "transparent"
+              selected: root.selectedSerial === model.serial
+              onClicked: root.selectDevice(model.serial, true)
             }
           }
         }
 
-        // Device picker + Resolution (always shows the connected device(s), separator before resolution)
+        Text {
+          visible: root.devices.count === 0 && root.connected === "none"
+          width: parent.width
+          text: "No device detected — plug the phone in over USB, or switch to WiFi and enter its IP."
+          color: Util.alpha(root.fg(), 0.6)
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          textFormat: Text.PlainText
+          wrapMode: Text.WordWrap
+        }
+
         Row {
           spacing: Style.space(8)
           width: parent.width
-          Repeater {
-            model: root.devices
-            PanelButton {
-              label: (model.transport === "wifi" ? "WiFi" : "USB") + " : " + (model.name || model.serial)
-              fg: root.fg()
-              active: root.selectedSerial === model.serial
-              onClicked: root.selectDevice(model.serial)
-            }
+          Button {
+            text: root.busyConnect ? "Connecting…" : "Connect"
+            tooltipText: "Connect the phone (USB, or WiFi if selected)"
+            bordered: true
+            foreground: root.fg()
+            background: "transparent"
+            onClicked: root.doConnect()
           }
-          Rectangle {
-            visible: root.devices.count > 0
-            width: 1
-            height: Style.space(24)
-            color: Util.alpha(root.fg(), 0.3)
-          }
-          PanelButton {
-            label: "1080p"
-            width: Style.space(70)
-            fg: root.fg()
-            active: root.maxSize === 1080
-            onClicked: { root.maxSize = 1080; root.saveConfig() }
-          }
-          PanelButton {
-            label: "720p"
-            width: Style.space(70)
-            fg: root.fg()
-            active: root.maxSize === 720
-            onClicked: { root.maxSize = 720; root.saveConfig() }
+          Button {
+            text: "Disconnect"
+            tooltipText: "Disconnect ADB and close our scrcpy window"
+            bordered: true
+            foreground: root.fg()
+            background: "transparent"
+            onClicked: root.doDisconnect()
           }
         }
 
-        // Action buttons
+        // ── SCREEN (primary action) ─────────────────────────────────
+        PanelSeparator { foreground: root.fg() }
+        PanelSectionHeader {
+          text: "SCREEN"
+          foreground: root.fg()
+          fontFamily: Style.font.family
+        }
+
+        Button {
+          width: parent.width
+          text: "Open screen"
+          tooltipText: "Launch the interactive scrcpy window"
+          foreground: root.fg()
+          background: "transparent"
+          bordered: !root.canInteract
+          active: root.canInteract
+          opacity: root.canInteract ? 1.0 : 0.55
+          onClicked: root.doOpen()
+        }
+
         Row {
           spacing: Style.space(8)
-          PanelButton { label: "Connect"; fg: root.fg(); onClicked: root.doConnect() }
-          PanelButton { label: "Wake"; fg: root.fg(); onClicked: root.doWake() }
-          PanelButton { label: "Disconnect"; fg: root.fg(); onClicked: root.doDisconnect() }
-          Rectangle {
-            width: 1
-            height: Style.space(24)
-            color: Util.alpha(root.fg(), 0.3)
+          width: parent.width
+          Button {
+            text: "Wake"
+            tooltipText: "Turn the phone screen on"
+            bordered: true
+            foreground: root.fg()
+            background: "transparent"
+            onClicked: root.doWake()
           }
-          PanelButton { label: "Open screen"; fg: root.fg(); onClicked: root.doOpen() }
+          ButtonGroup {
+            options: [
+              { value: "1080", label: "1080p", tooltip: "Scrcpy window quality (~6–8″ equivalent)" },
+              { value: "720", label: "720p", tooltip: "Smaller, lighter scrcpy window" }
+            ]
+            value: String(root.maxSize)
+            foreground: root.fg()
+            background: "transparent"
+            focusable: false
+            onChanged: function(v) { root.maxSize = parseInt(v) || 1080; root.saveConfig() }
+          }
         }
 
-        // Quick connectivity toggles (grouped 2x2 so they stay compact)
+        // ── PHONE keys (collapsible, open by default) ───────────────
+        PanelSeparator { foreground: root.fg() }
+        Row {
+          id: phoneHead
+          width: parent.width
+          spacing: Style.space(6)
+          property bool open: true
+          Text {
+            text: phoneHead.open ? "\uF078" : "\uF054"
+            color: Util.alpha(root.fg(), 0.7)
+            font.family: root.iconFont
+            font.pixelSize: Style.font.caption
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          PanelSectionHeader {
+            text: "PHONE"
+            foreground: root.fg()
+            fontFamily: Style.font.family
+            anchors.verticalCenter: parent.verticalCenter
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: phoneHead.open = !phoneHead.open
+          }
+        }
+
         Column {
           width: parent.width
           spacing: Style.space(6)
-          visible: root.connected !== "none" || root.selectedSerial !== ""
+          visible: phoneHead.open
+          Row {
+            width: parent.width
+            spacing: Style.space(6)
+            Button { iconText: "\uDB80\uDC4D"; tooltipText: "Back"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_BACK") }
+            Button { iconText: "\uDB80\uDEDC"; tooltipText: "Home"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_HOME") }
+            Button { iconText: "\uDB80\uDC3B"; tooltipText: "Recents"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
+            Button { iconText: "\uDB81\uDC25"; tooltipText: "Power"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_POWER") }
+            Button { iconText: "\uDB81\uDF5E"; tooltipText: "Volume down"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
+            Button { iconText: "\uDB81\uDF5D"; tooltipText: "Volume up"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+          }
+        }
 
+        // ── DEVICE (collapsible, closed by default) ───────────────────
+        PanelSeparator { foreground: root.fg() }
+        Row {
+          id: deviceHead
+          width: parent.width
+          spacing: Style.space(6)
+          property bool open: false
+          Text {
+            text: deviceHead.open ? "\uF078" : "\uF054"
+            color: Util.alpha(root.fg(), 0.7)
+            font.family: root.iconFont
+            font.pixelSize: Style.font.caption
+            anchors.verticalCenter: parent.verticalCenter
+          }
           PanelSectionHeader {
-            text: "QUICK TOGGLES"
+            text: "DEVICE"
             foreground: root.fg()
             fontFamily: Style.font.family
+            anchors.verticalCenter: parent.verticalCenter
           }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: deviceHead.open = !deviceHead.open
+          }
+        }
+
+        Column {
+          width: parent.width
+          spacing: Style.space(6)
+          visible: deviceHead.open
+
+          // Device system stats (RAM / CPU / storage) — hidden when offline
+          Row {
+            visible: root.connected !== "none"
+            width: parent.width
+            spacing: Style.space(8)
+            property real cpuW: Style.space(80)
+
+            Rectangle {
+              width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
+              height: Style.space(48)
+              radius: Style.cornerRadius
+              border.color: Util.alpha(root.fg(), 0.18)
+              border.width: 1
+              color: Util.alpha(root.fg(), 0.04)
+              Row {
+                anchors.fill: parent
+                anchors.margins: Style.space(10)
+                spacing: Style.space(8)
+                Text { text: "\uEFC5"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+                Text { text: root.sysRam || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
+              }
+            }
+            Rectangle {
+              width: parent.cpuW
+              height: Style.space(48)
+              radius: Style.cornerRadius
+              border.color: Util.alpha(root.fg(), 0.18)
+              border.width: 1
+              color: Util.alpha(root.fg(), 0.04)
+              Row {
+                anchors.fill: parent
+                anchors.margins: Style.space(10)
+                spacing: Style.space(8)
+                Text { text: "\uF4BC"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+                Text { text: root.sysCpu || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
+              }
+            }
+            Rectangle {
+              width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
+              height: Style.space(48)
+              radius: Style.cornerRadius
+              border.color: Util.alpha(root.fg(), 0.18)
+              border.width: 1
+              color: Util.alpha(root.fg(), 0.04)
+              Row {
+                anchors.fill: parent
+                anchors.margins: Style.space(10)
+                spacing: Style.space(8)
+                Text { text: "\uE8B3"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
+                Text { text: root.sysStorage || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
+              }
+            }
+          }
+
+          // Quick connectivity toggles (grouped 2x2 so they stay compact)
+          Column {
+            width: parent.width
+            spacing: Style.space(6)
+            visible: root.connected !== "none" || root.selectedSerial !== ""
+
+            PanelSectionHeader {
+              text: "QUICK TOGGLES"
+              foreground: root.fg()
+              fontFamily: Style.font.family
+            }
 
           Row {
             width: parent.width
@@ -683,70 +842,14 @@ Panel {
             }
           }
         }
-
-        // Device system stats (RAM / CPU / storage)
-        Row {
-          width: parent.width
-          spacing: Style.space(8)
-          property real cpuW: Style.space(80)
-
-          Rectangle {
-            width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
-            height: Style.space(48)
-            radius: Style.cornerRadius
-            border.color: Util.alpha(root.fg(), 0.18)
-            border.width: 1
-            color: Util.alpha(root.fg(), 0.04)
-            Row {
-              anchors.fill: parent
-              anchors.margins: Style.space(10)
-              spacing: Style.space(8)
-              Text { text: "\uEFC5"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
-              Text { text: root.sysRam || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
-            }
-          }
-          Rectangle {
-            width: parent.cpuW
-            height: Style.space(48)
-            radius: Style.cornerRadius
-            border.color: Util.alpha(root.fg(), 0.18)
-            border.width: 1
-            color: Util.alpha(root.fg(), 0.04)
-            Row {
-              anchors.fill: parent
-              anchors.margins: Style.space(10)
-              spacing: Style.space(8)
-              Text { text: "\uF4BC"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
-              Text { text: root.sysCpu || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
-            }
-          }
-          Rectangle {
-            width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
-            height: Style.space(48)
-            radius: Style.cornerRadius
-            border.color: Util.alpha(root.fg(), 0.18)
-            border.width: 1
-            color: Util.alpha(root.fg(), 0.04)
-            Row {
-              anchors.fill: parent
-              anchors.margins: Style.space(10)
-              spacing: Style.space(8)
-              Text { text: "\uE8B3"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
-              Text { text: root.sysStorage || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
-            }
-          }
         }
 
-        // Device controls (full panel width)
-        Row {
-          width: parent.width
-          spacing: Style.space(6)
-          PanelButton { label: "\uDB80\uDC4D"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_BACK") }
-          PanelButton { label: "\uDB80\uDEDC"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_HOME") }
-          PanelButton { label: "\uDB80\uDC3B"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
-          PanelButton { label: "\uDB81\uDC25"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_POWER") }
-          PanelButton { label: "\uDB81\uDF5E"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
-          PanelButton { label: "\uDB81\uDF5D"; iconFont: root.iconFont; width: (parent.width - parent.spacing * 5) / 6; fg: root.fg(); onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+        // ── PREVIEW (read-only — use Open screen to interact) ────
+        PanelSeparator { foreground: root.fg() }
+        PanelSectionHeader {
+          text: "PREVIEW"
+          foreground: root.fg()
+          fontFamily: Style.font.family
         }
 
         // Preview
@@ -783,38 +886,17 @@ Panel {
             verticalAlignment: Text.AlignVCenter
           }
 
-          MouseArea {
-            anchors.fill: parent
-            property int startX: 0
-            property int startY: 0
-            property bool down: false
-            onPressed: function(e) {
-              if (root.connected === "none" && !root.selectedSerial) return
-              startX = e.x; startY = e.y; down = true
-            }
-            onReleased: function(e) {
-              if (!down) return
-              down = false
-              if (root.connected === "none" && !root.selectedSerial) return
-                var s = root.previewToDevice(startX, startY)
-                var cur = root.previewToDevice(e.x, e.y)
-                if (Math.abs(e.x - startX) < 12 && Math.abs(e.y - startY) < 12)
-                  root.sendSwipe(s[0], s[1], s[0], s[1], 1)
-                else
-                  root.sendSwipe(s[0], s[1], cur[0], cur[1], 80)
-            }
-          }
 
           Column {
             anchors.top: parent.top
             anchors.right: parent.right
             anchors.margins: Style.space(8)
             spacing: Style.space(6)
-            PanelButton { label: "\uDB81\uDC67"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.rotatePreview() }
-            PanelButton { label: root.previewExpanded ? "\uDB80\uDE94" : "\uDB80\uDE93"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.previewExpanded = !root.previewExpanded }
-            PanelButton { label: "\uDB80\uDCDB"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("down") }
-            PanelButton { label: "\uDB80\uDCE0"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.brightness("up") }
-            PanelButton { label: "\uDB80\uDD93"; iconFont: root.iconFont; width: Style.space(40); height: Style.space(40); fg: root.fg(); onClicked: root.savePreview() }
+            PanelActionButton { iconText: "\uDB81\uDC67"; tooltipText: "Rotate preview"; fontFamily: root.iconFont; foreground: root.fg(); size: Style.space(32); onClicked: root.rotatePreview() }
+            PanelActionButton { iconText: root.previewExpanded ? "\uDB80\uDE94" : "\uDB80\uDE93"; tooltipText: "Expand preview"; fontFamily: root.iconFont; foreground: root.fg(); size: Style.space(32); onClicked: root.previewExpanded = !root.previewExpanded }
+            PanelActionButton { iconText: "\uDB80\uDCDB"; tooltipText: "Brightness down"; fontFamily: root.iconFont; foreground: root.fg(); size: Style.space(32); onClicked: root.brightness("down") }
+            PanelActionButton { iconText: "\uDB80\uDCE0"; tooltipText: "Brightness up"; fontFamily: root.iconFont; foreground: root.fg(); size: Style.space(32); onClicked: root.brightness("up") }
+            PanelActionButton { iconText: "\uDB80\uDD93"; tooltipText: "Save snapshot"; fontFamily: root.iconFont; foreground: root.fg(); size: Style.space(32); onClicked: root.savePreview() }
           }
         }
       }

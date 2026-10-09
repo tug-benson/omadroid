@@ -3,16 +3,28 @@
 An [Omarchy](https://omarchy.org) plugin to view and control an Android phone
 right from the bar, using **scrcpy** and **ADB**.
 
-The widget shows a 📱 icon in the bar. Clicking it opens a panel:
+The widget shows a 📱 icon in the bar. Clicking it opens a panel
+organized in native Omarchy sections:
 
-- **Top of the panel** — configuration (connection mode USB / WiFi, WiFi IP,
-  scrcpy window size, Connect / Wake / Disconnect buttons, status).
-- **Bottom of the panel** — a preview of the phone screen + an **Open screen**
-  button that launches the interactive scrcpy window.
+- **Status card** — connection dot, status text and battery level
+  (green = USB, orange = WiFi, red = disconnected).
+- **CONNECTION** — USB / WiFi segmented control, WiFi IP field,
+  device chips (tapping one aligns the transport mode), and
+  **Connect** (shows a "Connecting…" state while ADB works) /
+  **Disconnect** buttons.
+- **SCREEN** — a full-width **Open screen** CTA that launches the
+  interactive scrcpy window, plus **Wake** and the 1080p / 720p
+  quality selector.
+- **PREVIEW** — a read-only auto-refreshing screenshot of the phone
+  (rotate / expand / brightness / save-snapshot actions). All
+  interaction happens in the scrcpy window.
+- **PHONE** (collapsible, open by default) — Back / Home / Recents /
+  Power / Volume keys.
+- **DEVICE** (collapsible, closed by default) — RAM / CPU / storage
+  cards (hidden while disconnected) and WiFi / Bluetooth / mobile
+  data / airplane-mode toggles.
 
-The status line shows the connection type, device model and battery level, with
-a colored dot (green = USB, orange = WiFi, red = disconnected). The last used
-WiFi IP and mode are remembered between sessions.
+The last used WiFi IP and mode are remembered between sessions.
 
 > Unlocking the screen is done physically (fingerprint / PIN) on the device.
 > The **Wake** button turns the screen on so the preview shows up.
@@ -145,16 +157,17 @@ that starts Omarchy to tune it. Pick any free key combo — change
 
 - **USB by default, WiFi optional** (remembers the last WiFi IP and mode).
 - **Auto-connect over WiFi** when you open the panel and an IP is known.
-- **Multiple devices**: if several phones are detected, a device picker lets
-  you choose which one to mirror.
+- **Connecting… feedback** on the Connect button while ADB is working.
+- **Multiple devices**: if several phones are detected, device chips let
+  you choose which one to mirror (the transport mode follows the chip).
 - **Resolution toggle** for the scrcpy window: **1080p** / **720p**.
-- **Preview** (auto-refreshing screenshot) with **Rotate** (⟳) and **Expand** (▣) controls.
-- **Direct touch control**: tap and swipe directly on the preview to drive the
-  phone (maps to `adb input tap` / `swipe`, accounting for preview rotation).
+- **Read-only preview** (auto-refreshing screenshot) with **Rotate**,
+  **Expand**, brightness and **Save snapshot** actions. Touch control
+  happens in the scrcpy window, not on the preview.
 - **Save snapshot**: the 💾 button copies the current preview to
   `~/Pictures/omadroid-<timestamp>.png` (handy for grabbing a clean wallpaper
   shot without the apps).
-- **Battery level** and a colored connection indicator in the status line.
+- **Battery level** and a colored connection indicator in the status card.
 
 ## ⚙️ Configuration
 
@@ -201,10 +214,10 @@ Settings (WiFi IP, max size, mode) are persisted to
 - A typo in `SCRCPY_OPTS` can make scrcpy exit immediately — test your flags
   from a terminal first.
 
-**Touch control on the preview does not react:**
-- The device must be connected and authorized.
-- Over WiFi, inputs are blocked until the device is unlocked at least once, or
-  **USB debugging (Security settings)** is enabled.
+**The preview does not react to clicks:**
+- This is expected: the preview is read-only since the UX rework.
+  Click **Open screen** and interact with the scrcpy window instead.
+  The PHONE keys (Back / Home / …) still work directly from the panel.
 
 **The widget does not appear in the bar:**
 - Run `omarchy plugin validate com.github.tug-benson.omadroid` and
