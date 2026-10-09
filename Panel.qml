@@ -211,7 +211,7 @@ Panel {
       root.sysDiskT = parseFloat(s.storage_total) || 0
       root.sysRam = root.sysRamU.toFixed(1) + "/" + root.sysRamT.toFixed(1) + " GB"
       root.sysCpu = Math.round(root.sysCpuL) + "%"
-      root.sysStorage = root.sysDiskF.toFixed(1) + "/" + root.sysDiskT.toFixed(1) + " GB"
+      root.sysStorage = Math.round(root.sysDiskF) + "/" + Math.round(root.sysDiskT) + " GB"
       root.wifiSsid = s.ssid || ""
       root.wifiRssi = s.rssi || ""
     } catch (e) {}
@@ -294,6 +294,15 @@ Panel {
     root.refreshStatus()
     root.refreshPreview()
     root.refreshToggles()
+  }
+
+  function cycleDevice() {
+    if (root.devices.count < 2) return
+    var idx = -1
+    for (var i = 0; i < root.devices.count; i++) {
+      if (root.devices.get(i).serial === root.selectedSerial) { idx = i; break }
+    }
+    root.selectDevice(root.devices.get((idx + 1) % root.devices.count).serial, true)
   }
 
   function loadConfig() {
@@ -558,7 +567,7 @@ Panel {
                 anchors.fill: parent
                 anchors.margins: Style.space(5)
                 radius: Style.space(6)
-                color: root.connected === "none" ? Util.alpha(root.fg(), 0.06) : Util.alpha(root.glowColor(), 0.4)
+                color: (root.connected === "none" && !mockHover.containsMouse) ? Util.alpha(root.fg(), 0.06) : Util.alpha(root.glowColor(), mockHover.containsMouse ? 0.6 : 0.4)
                 Behavior on color { ColorAnimation { duration: 300 } }
               }
               Rectangle {
@@ -569,6 +578,17 @@ Panel {
                 anchors.topMargin: Style.space(8)
                 anchors.horizontalCenter: parent.horizontalCenter
                 color: Util.alpha(root.fg(), 0.35)
+              }
+              MouseArea {
+                id: mockHover
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.doOpen()
+              }
+              PanelToolTip {
+                visible: mockHover.containsMouse
+                text: "Open screen"
               }
             }
 
@@ -839,8 +859,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("bt") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("bt") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -853,7 +873,7 @@ Panel {
                     height: Style.space(8)
                     radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    color: root.toggleState("bt") ? Color.accent : Util.alpha(root.fg(), 0.3)
                   }
                   Text {
                     text: "BT"
@@ -875,8 +895,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("data") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("data") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -889,7 +909,7 @@ Panel {
                     height: Style.space(8)
                     radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    color: root.toggleState("data") ? Color.accent : Util.alpha(root.fg(), 0.3)
                   }
                   Text {
                     text: "Data"
@@ -911,8 +931,8 @@ Panel {
                 width: heroToggles.width
                 height: Style.space(30)
                 radius: Style.cornerRadius
-                color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: root.toggleState("wifi") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                color: root.toggleState("airplane") ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: root.toggleState("airplane") ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
                 border.width: 1
                 opacity: root.canInteract ? 1.0 : 0.5
                 Behavior on color { ColorAnimation { duration: 150 } }
@@ -925,7 +945,7 @@ Panel {
                     height: Style.space(8)
                     radius: width / 2
                     anchors.verticalCenter: parent.verticalCenter
-                    color: root.toggleState("wifi") ? Color.accent : Util.alpha(root.fg(), 0.3)
+                    color: root.toggleState("airplane") ? Color.accent : Util.alpha(root.fg(), 0.3)
                   }
                   Text {
                     text: "Airplane"
@@ -1049,14 +1069,14 @@ Panel {
                 anchors.fill: parent
                 visible: root.mode === "usb"
                 text: root.selectedSerial !== "" ? root.selectedDeviceLabel() : "No USB device"
-                tooltipText: "Active USB device — click to list all devices"
+                tooltipText: "Active USB device — click to switch"
                 bordered: true
                 foreground: root.fg()
                 background: "transparent"
                 fontSize: Style.font.bodySmall
                 verticalPadding: Style.spacing.xs
                 opacity: root.selectedSerial !== "" ? 1.0 : 0.55
-                onClicked: devicesHead.open = !devicesHead.open
+                onClicked: root.cycleDevice()
               }
             }
         }
@@ -1064,65 +1084,6 @@ Panel {
 
         // Device picker (chips wrap; selecting one aligns the mode)
 
-        Item {
-          id: devicesHead
-          width: parent.width
-          visible: root.devices.count > 0
-          height: devicesTitle.implicitHeight
-          Row {
-            anchors.fill: parent
-            spacing: Style.space(6)
-            Text {
-              text: devicesHead.open ? "\uF078" : "\uF054"
-              color: Util.alpha(root.fg(), 0.7)
-              font.family: root.iconFont
-              font.pixelSize: Style.font.caption
-              anchors.verticalCenter: parent.verticalCenter
-            }
-            PanelSectionHeader {
-              id: devicesTitle
-              text: "DEVICES · " + root.devices.count
-              foreground: root.fg()
-              fontFamily: Style.font.family
-              anchors.verticalCenter: parent.verticalCenter
-            }
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: devicesHead.open = !devicesHead.open
-          }
-          property bool open: false
-        }
-        Item {
-          width: parent.width
-          visible: root.devices.count > 0
-          height: devicesHead.open ? devicesBody.height : 0
-          clip: true
-          Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-          Column {
-            id: devicesBody
-            width: parent.width
-            spacing: Style.space(6)
-        Flow {
-          visible: root.devices.count > 0
-          width: parent.width
-          spacing: Style.space(8)
-          Repeater {
-            model: root.devices
-            Button {
-              text: (model.transport === "wifi" ? "WiFi · " : "USB · ") + (model.name || model.serial)
-              tooltipText: model.serial
-              bordered: true
-              foreground: root.fg()
-              background: "transparent"
-              selected: root.selectedSerial === model.serial
-              onClicked: root.selectDevice(model.serial, true)
-            }
-          }
-        }
-          }
-        }
         Text {
           visible: root.devices.count === 0 && root.connected === "none"
           width: parent.width
@@ -1136,20 +1097,6 @@ Panel {
 
 
         // ── SCREEN (primary action) ─────────────────────────────────
-        PanelSeparator { foreground: root.fg() }
-
-        Button {
-          width: parent.width
-          text: "\u25B6 Open screen"
-          verticalPadding: Style.spacing.xs
-          tooltipText: "Launch the interactive scrcpy window"
-          foreground: root.fg()
-          background: "transparent"
-          bordered: !root.canInteract
-          active: root.canInteract
-          opacity: root.canInteract ? 1.0 : 0.55
-          onClicked: root.doOpen()
-        }
 
 
         // ── PHONE keys (collapsible, open by default) ───────────────

@@ -12,10 +12,10 @@ organized in native Omarchy sections:
   **Connect ⇄ Disconnect** (morphing button, pulses with a
   "Connecting…" state while ADB works) + **Wake** actions, and four
   mini WiFi / BT / Data / Airplane tiles stacked on the right.
+  **Click the phone mock to open the interactive scrcpy window.**
 - **CONNECTION** — USB / WiFi segmented pill with a sliding cursor and,
   on the same row, the WiFi IP field (in WiFi mode) or the active USB
-  device (in USB mode, click to list all devices). The full device list
-  lives in a collapsed **DEVICES** section just below.
+  device (in USB mode, click to cycle through devices).
 - **Slim ▶ Open screen** CTA that launches the interactive scrcpy
   window (1080p equivalent; quality is fixed to keep the panel compact —
   override `max_size` in `~/.config/omarchy/omadroid.conf` if needed).
@@ -128,9 +128,9 @@ The widget appears in the `right` section of the bar (move it with
 ## 💡 Usage
 
 1. Plug the phone in over USB and accept the ADB authorization.
-2. Click the 📱 icon → the panel shows the phone preview.
-3. Click **Open screen** to launch the interactive scrcpy window
-   (size is adjustable, ~6–8″ equivalent by default).
+2. Click the 📱 icon → the panel shows the phone status.
+3. Click the **phone mock** in the hero card to launch the interactive
+   scrcpy window.
 4. Unlock the phone physically, then use it like a window.
 
 **WiFi mode (optional):** in the panel, pick **WiFi**, enter the phone IP, click
@@ -161,8 +161,9 @@ that starts Omarchy to tune it. Pick any free key combo — change
 - **Auto-connect over WiFi** when you open the panel and an IP is known.
 - **Connecting… feedback**: the morphing Connect button pulses while
   ADB is working.
-- **Multiple devices**: if several phones are detected, device chips let
-  you choose which one to mirror (the transport mode follows the chip).
+- **Multiple devices**: if several phones are detected, click the USB
+  slot in the transport row to cycle through them (the transport mode
+  follows the selected device).
 - **Resolution toggle** for the scrcpy window: **1080p** / **720p**.
 - **Read-only preview** (auto-refreshing screenshot) with **Rotate**,
   **Expand**, brightness and **Save snapshot** actions. Touch control
