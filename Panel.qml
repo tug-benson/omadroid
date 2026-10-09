@@ -480,7 +480,7 @@ Panel {
             text: "\uDB80\uDD1C"
             color: root.fg()
             font.family: root.iconFont
-            font.pixelSize: Style.space(34)
+            font.pixelSize: Style.space(26)
             transform: Rotation {
               id: flipRot
               origin.x: titleGlyph.width / 2
@@ -493,7 +493,7 @@ Panel {
             SequentialAnimation {
               loops: Animation.Infinite
               running: true
-              NumberAnimation { target: flipRot; property: "angle"; from: 0; to: 360; duration: 2800 }
+              NumberAnimation { target: flipRot; property: "angle"; from: 0; to: 360; duration: 4500 }
             }
           }
           Column {
@@ -506,7 +506,7 @@ Panel {
               text: "Omadroid"
               color: root.fg()
               font.family: Style.font.family
-              font.pixelSize: Style.font.display
+              font.pixelSize: Style.font.heading
               font.bold: true
               font.letterSpacing: 1
             }
