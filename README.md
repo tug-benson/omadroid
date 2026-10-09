@@ -7,10 +7,11 @@ The widget shows a 📱 icon in the bar. Clicking it opens a panel
 organized in native Omarchy sections:
 
 - **Hero card** — phone mock with a softly pulsing halo (green = USB,
-  orange = WiFi, red = disconnected), device model, status, battery
-  gauge, compact **Connect ⇄ Disconnect** (morphing button, pulses
-  with a "Connecting…" state while ADB works) + **Wake** actions, and
-  four mini WiFi / BT / Data / Airplane tiles stacked on the right.
+  orange = WiFi, red = disconnected), device model, status, four slim
+  BAT / RAM / CPU / DISK gauges (turn red when critical), compact
+  **Connect ⇄ Disconnect** (morphing button, pulses with a
+  "Connecting…" state while ADB works) + **Wake** actions, and four
+  mini WiFi / BT / Data / Airplane tiles stacked on the right.
 - **CONNECTION** — USB / WiFi segmented pill with a sliding cursor and,
   on the same row, the WiFi IP field (in WiFi mode) or the active USB
   device (in USB mode, click to list all devices). The full device list
@@ -24,8 +25,6 @@ organized in native Omarchy sections:
   interaction happens in the scrcpy window.
 - **PHONE** (collapsible, open by default) — Back / Home / Recents /
   Power / Volume keys.
-- **DEVICE** (collapsible with animated open/close, closed by default) —
-  RAM / CPU / storage cards, hidden while disconnected.
 
 The last used WiFi IP and mode are remembered between sessions.
 

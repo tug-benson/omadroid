@@ -33,6 +33,11 @@ Panel {
   property int deviceW: 1080
   property int deviceH: 2340
   property string sysRam: ""
+  property real sysRamU: 0
+  property real sysRamT: 0
+  property real sysCpuL: 0
+  property real sysDiskF: 0
+  property real sysDiskT: 0
   property string sysCpu: ""
   property string sysStorage: ""
   property string wifiSsid: ""
@@ -77,6 +82,10 @@ Panel {
     if (root.connected === "usb") return "#30a46c"
     if (root.connected === "wifi") return "#f5a623"
     return "#e5484d"
+  }
+  function barColor(frac, lowBad) {
+    if (lowBad ? (frac < 0.2) : (frac > 0.9)) return "#e5484d"
+    return root.glowColor()
   }
 
   function selectedDeviceLabel() {
@@ -195,9 +204,14 @@ Panel {
     if (!text) return
     try {
       var s = JSON.parse(text.trim())
-      root.sysRam = (s.ram_used ? s.ram_used : "0") + " / " + (s.ram_total ? s.ram_total : "0") + " GB"
-      root.sysCpu = (s.cpu_load != null ? s.cpu_load : "0") + " %"
-      root.sysStorage = (s.storage_free ? s.storage_free : "0") + " / " + (s.storage_total ? s.storage_total : "0") + " GB"
+      root.sysRamU = parseFloat(s.ram_used) || 0
+      root.sysRamT = parseFloat(s.ram_total) || 0
+      root.sysCpuL = parseFloat(s.cpu_load) || 0
+      root.sysDiskF = parseFloat(s.storage_free) || 0
+      root.sysDiskT = parseFloat(s.storage_total) || 0
+      root.sysRam = root.sysRamU.toFixed(1) + "/" + root.sysRamT.toFixed(1) + " GB"
+      root.sysCpu = Math.round(root.sysCpuL) + "%"
+      root.sysStorage = root.sysDiskF.toFixed(1) + "/" + root.sysDiskT.toFixed(1) + " GB"
       root.wifiSsid = s.ssid || ""
       root.wifiRssi = s.rssi || ""
     } catch (e) {}
@@ -532,8 +546,8 @@ Panel {
             spacing: Style.space(12)
 
             Rectangle {
-              width: Style.space(40)
-              height: Style.space(80)
+              width: Style.space(44)
+              height: Style.space(88)
               radius: Style.space(10)
               color: "#0d1117"
               border.color: Util.alpha(root.fg(), 0.35)
@@ -596,28 +610,155 @@ Panel {
                 }
               }
 
-              Row {
+               Row {
                 visible: root.battery !== ""
-                spacing: Style.space(8)
+                width: parent.width
+                spacing: Style.space(6)
+                Text {
+                  width: Style.space(34)
+                  text: "BAT"
+                  color: Util.alpha(root.fg(), 0.6)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                }
                 Rectangle {
-                  width: Style.space(110)
-                  height: Style.space(8)
+                  width: parent.width - Style.space(34) - Style.space(76) - parent.spacing * 2
+                  height: Style.space(6)
                   radius: height / 2
                   anchors.verticalCenter: parent.verticalCenter
                   color: Util.alpha(root.fg(), 0.15)
                   Rectangle {
-                    width: parent.width * root.battFrac
+                    width: parent.width * (root.battFrac)
                     height: parent.height
                     radius: parent.radius
-                    color: root.glowColor()
+                    color: root.barColor(root.battFrac, true)
                   }
                 }
                 Text {
+                  width: Style.space(76)
                   text: root.battery + "%"
                   color: Util.alpha(root.fg(), 0.85)
                   font.family: Style.font.family
                   font.pixelSize: Style.font.caption
                   textFormat: Text.PlainText
+                  horizontalAlignment: Text.AlignRight
+                  elide: Text.ElideRight
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
+              Row {
+                visible: root.connected !== "none"
+                width: parent.width
+                spacing: Style.space(6)
+                Text {
+                  width: Style.space(34)
+                  text: "RAM"
+                  color: Util.alpha(root.fg(), 0.6)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+                Rectangle {
+                  width: parent.width - Style.space(34) - Style.space(76) - parent.spacing * 2
+                  height: Style.space(6)
+                  radius: height / 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: Util.alpha(root.fg(), 0.15)
+                  Rectangle {
+                    width: parent.width * (root.sysRamT > 0 ? root.sysRamU / root.sysRamT : 0)
+                    height: parent.height
+                    radius: parent.radius
+                    color: root.barColor(root.sysRamT > 0 ? root.sysRamU / root.sysRamT : 0, false)
+                  }
+                }
+                Text {
+                  width: Style.space(76)
+                  text: root.sysRam
+                  color: Util.alpha(root.fg(), 0.85)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  horizontalAlignment: Text.AlignRight
+                  elide: Text.ElideRight
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
+              Row {
+                visible: root.connected !== "none"
+                width: parent.width
+                spacing: Style.space(6)
+                Text {
+                  width: Style.space(34)
+                  text: "CPU"
+                  color: Util.alpha(root.fg(), 0.6)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+                Rectangle {
+                  width: parent.width - Style.space(34) - Style.space(76) - parent.spacing * 2
+                  height: Style.space(6)
+                  radius: height / 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: Util.alpha(root.fg(), 0.15)
+                  Rectangle {
+                    width: parent.width * (root.sysCpuL / 100)
+                    height: parent.height
+                    radius: parent.radius
+                    color: root.barColor(root.sysCpuL / 100, false)
+                  }
+                }
+                Text {
+                  width: Style.space(76)
+                  text: root.sysCpu
+                  color: Util.alpha(root.fg(), 0.85)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  horizontalAlignment: Text.AlignRight
+                  elide: Text.ElideRight
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+              }
+              Row {
+                visible: root.connected !== "none"
+                width: parent.width
+                spacing: Style.space(6)
+                Text {
+                  width: Style.space(34)
+                  text: "DISK"
+                  color: Util.alpha(root.fg(), 0.6)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  anchors.verticalCenter: parent.verticalCenter
+                }
+                Rectangle {
+                  width: parent.width - Style.space(34) - Style.space(76) - parent.spacing * 2
+                  height: Style.space(6)
+                  radius: height / 2
+                  anchors.verticalCenter: parent.verticalCenter
+                  color: Util.alpha(root.fg(), 0.15)
+                  Rectangle {
+                    width: parent.width * (root.sysDiskT > 0 ? 1 - root.sysDiskF / root.sysDiskT : 0)
+                    height: parent.height
+                    radius: parent.radius
+                    color: root.barColor(root.sysDiskT > 0 ? 1 - root.sysDiskF / root.sysDiskT : 0, false)
+                  }
+                }
+                Text {
+                  width: Style.space(76)
+                  text: root.sysStorage
+                  color: Util.alpha(root.fg(), 0.85)
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.caption
+                  textFormat: Text.PlainText
+                  horizontalAlignment: Text.AlignRight
+                  elide: Text.ElideRight
                   anchors.verticalCenter: parent.verticalCenter
                 }
               }
@@ -1069,105 +1210,7 @@ Panel {
         }
         }
 
-        // -- DEVICE (collapsible, closed by default) ───────────────────
-        PanelSeparator { foreground: root.fg() }
-        Item {
-          id: deviceHead
-          width: parent.width
-          height: deviceHeadTitle.implicitHeight
-          property bool open: false
-          Row {
-            anchors.fill: parent
-            spacing: Style.space(6)
-          Text {
-            text: deviceHead.open ? "\uF078" : "\uF054"
-            color: Util.alpha(root.fg(), 0.7)
-            font.family: root.iconFont
-            font.pixelSize: Style.font.caption
-            anchors.verticalCenter: parent.verticalCenter
-          }
-          PanelSectionHeader {
-            id: deviceHeadTitle
-            text: "DEVICE"
-            foreground: root.fg()
-            fontFamily: Style.font.family
-            anchors.verticalCenter: parent.verticalCenter
-          }
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: deviceHead.open = !deviceHead.open
-          }
-        }
 
-        Item {
-          width: parent.width
-          height: deviceHead.open ? deviceBody.height : 0
-          clip: true
-          Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-          Column {
-            id: deviceBody
-            width: parent.width
-            spacing: Style.space(6)
-
-          // Device system stats (RAM / CPU / storage) — hidden when offline
-          Row {
-            visible: root.connected !== "none"
-            width: parent.width
-            spacing: Style.space(8)
-            property real cpuW: Style.space(80)
-
-            Rectangle {
-              width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
-              height: Style.space(48)
-              radius: Style.cornerRadius
-              border.color: Util.alpha(root.fg(), 0.18)
-              border.width: 1
-              color: Util.alpha(root.fg(), 0.04)
-              Row {
-                anchors.fill: parent
-                anchors.margins: Style.space(10)
-                spacing: Style.space(8)
-                Text { text: "\uEFC5"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
-                Text { text: root.sysRam || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
-              }
-            }
-            Rectangle {
-              width: parent.cpuW
-              height: Style.space(48)
-              radius: Style.cornerRadius
-              border.color: Util.alpha(root.fg(), 0.18)
-              border.width: 1
-              color: Util.alpha(root.fg(), 0.04)
-              Row {
-                anchors.fill: parent
-                anchors.margins: Style.space(10)
-                spacing: Style.space(8)
-                Text { text: "\uF4BC"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
-                Text { text: root.sysCpu || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
-              }
-            }
-            Rectangle {
-              width: (parent.width - parent.spacing * 2 - parent.cpuW) / 2
-              height: Style.space(48)
-              radius: Style.cornerRadius
-              border.color: Util.alpha(root.fg(), 0.18)
-              border.width: 1
-              color: Util.alpha(root.fg(), 0.04)
-              Row {
-                anchors.fill: parent
-                anchors.margins: Style.space(10)
-                spacing: Style.space(8)
-                Text { text: "\uE8B3"; color: root.fg(); font.family: root.iconFont; font.pixelSize: Style.space(24); anchors.verticalCenter: parent.verticalCenter }
-                Text { text: root.sysStorage || "—"; color: Util.alpha(root.fg(), 0.9); font.family: Style.font.family; font.pixelSize: Style.font.body; anchors.verticalCenter: parent.verticalCenter; elide: Text.ElideRight }
-              }
-            }
-          }
-
-          // Quick connectivity toggles (grouped 2x2 so they stay compact)
-        }
-        }
 
         // -- PREVIEW (read-only — use Open screen to interact) ────
         PanelSeparator { foreground: root.fg() }
