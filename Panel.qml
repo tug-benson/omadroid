@@ -475,7 +475,7 @@ Panel {
           width: parent.width
           Text {
             id: titleGlyph
-            text: "\uDB80\uDD1C"
+            text: "\ue70e"
             color: root.fg()
             font.family: root.iconFont
             font.pixelSize: Style.font.title
