@@ -473,22 +473,20 @@ Panel {
         Row {
           spacing: Style.space(8)
           width: parent.width
-          Rectangle {
-            id: appBadge
-            width: Style.space(44)
-            height: Style.space(44)
-            radius: Style.cornerRadius
+          Text {
+            id: titleGlyph
             anchors.verticalCenter: parent.verticalCenter
-            color: Util.alpha(root.fg(), 0.08)
-            border.color: Util.alpha(root.fg(), 0.2)
-            border.width: 1
-            Text {
-              anchors.centerIn: parent
-              textFormat: Text.PlainText
-              text: "\uDB80\uDD1C"
-              color: root.fg()
-              font.family: root.iconFont
-              font.pixelSize: Style.space(26)
+            textFormat: Text.PlainText
+            text: "\uDB80\uDD1C"
+            color: root.fg()
+            font.family: root.iconFont
+            font.pixelSize: Style.space(34)
+            transformOrigin: Item.Center
+            RotationAnimation on rotation {
+              from: 0
+              to: 360
+              duration: 6000
+              loops: Animation.Infinite
             }
           }
           Column {
@@ -513,8 +511,8 @@ Panel {
             }
           }
           Item {
-            width: parent.width - appBadge.width - titleCol.width - parent.spacing * 2
-            height: appBadge.height
+            width: parent.width - titleGlyph.width - titleCol.width - parent.spacing * 2
+            height: titleGlyph.height
             PanelActionButton {
               id: githubBtn
               anchors.right: parent.right
