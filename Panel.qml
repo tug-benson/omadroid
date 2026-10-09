@@ -822,11 +822,14 @@ Panel {
 
         // ── PHONE keys (collapsible, open by default) ───────────────
         PanelSeparator { foreground: root.fg() }
-        Row {
+        Item {
           id: phoneHead
           width: parent.width
-          spacing: Style.space(6)
+          height: phoneHeadTitle.implicitHeight
           property bool open: true
+          Row {
+            anchors.fill: parent
+            spacing: Style.space(6)
           Text {
             text: phoneHead.open ? "\uF078" : "\uF054"
             color: Util.alpha(root.fg(), 0.7)
@@ -835,10 +838,12 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
           }
           PanelSectionHeader {
+            id: phoneHeadTitle
             text: "PHONE"
             foreground: root.fg()
             fontFamily: Style.font.family
             anchors.verticalCenter: parent.verticalCenter
+          }
           }
           MouseArea {
             anchors.fill: parent
@@ -871,11 +876,14 @@ Panel {
 
         // -- DEVICE (collapsible, closed by default) ───────────────────
         PanelSeparator { foreground: root.fg() }
-        Row {
+        Item {
           id: deviceHead
           width: parent.width
-          spacing: Style.space(6)
+          height: deviceHeadTitle.implicitHeight
           property bool open: false
+          Row {
+            anchors.fill: parent
+            spacing: Style.space(6)
           Text {
             text: deviceHead.open ? "\uF078" : "\uF054"
             color: Util.alpha(root.fg(), 0.7)
@@ -884,10 +892,12 @@ Panel {
             anchors.verticalCenter: parent.verticalCenter
           }
           PanelSectionHeader {
+            id: deviceHeadTitle
             text: "DEVICE"
             foreground: root.fg()
             fontFamily: Style.font.family
             anchors.verticalCenter: parent.verticalCenter
+          }
           }
           MouseArea {
             anchors.fill: parent
