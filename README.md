@@ -4,7 +4,8 @@ An [Omarchy](https://omarchy.org) plugin to view and control an Android phone
 right from the bar, using **scrcpy** and **ADB**.
 
 The widget shows a 📱 icon in the bar. Clicking it opens a panel
-organized in native Omarchy sections:
+organized in native Omarchy sections. The header carries a GitHub
+mark linking to the [plugin repository](https://github.com/tug-benson/omadroid).
 
 - **Hero card** — phone mock with a softly pulsing halo (green = USB,
   orange = WiFi, red = disconnected), device model, status, four slim
@@ -23,8 +24,9 @@ organized in native Omarchy sections:
   auto-refreshing screenshot of the phone (rotate / expand /
   brightness / save-snapshot actions, revealed on hover). All
   interaction happens in the scrcpy window.
-- **PHONE** (collapsible, open by default) — Back / Home / Recents /
-  Power / Volume keys.
+- **PHONE** (always visible, above the preview) — Back / Home /
+  Recents / Power / Volume as circular icon buttons with tooltips
+  and press micro-scale.
 
 The last used WiFi IP and mode are remembered between sessions.
 

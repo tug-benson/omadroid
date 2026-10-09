@@ -493,9 +493,20 @@ Panel {
           Item {
             width: parent.width - titleGlyph.width - titleText.width - Style.space(16)
             height: wifiInfo.height
+            PanelActionButton {
+              id: githubBtn
+              anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              iconText: "\uF09B"
+              tooltipText: "Open repository on GitHub"
+              fontFamily: root.iconFont
+              foreground: Util.alpha(root.fg(), 0.7)
+              onClicked: Qt.openUrlExternally("https://github.com/tug-benson/omadroid")
+            }
             Column {
               id: wifiInfo
-              anchors.right: parent.right
+              anchors.right: githubBtn.left
+              anchors.rightMargin: Style.space(8)
               anchors.verticalCenter: parent.verticalCenter
               spacing: Style.space(2)
               visible: root.wifiSsid !== ""
@@ -1101,56 +1112,37 @@ Panel {
 
         // ── PHONE keys (collapsible, open by default) ───────────────
         PanelSeparator { foreground: root.fg() }
-        Item {
-          id: phoneHead
-          width: parent.width
-          height: phoneHeadTitle.implicitHeight
-          property bool open: true
-          Row {
-            anchors.fill: parent
-            spacing: Style.space(6)
-          Text {
-            text: phoneHead.open ? "\uF078" : "\uF054"
-            color: Util.alpha(root.fg(), 0.7)
-            font.family: root.iconFont
-            font.pixelSize: Style.font.caption
-            anchors.verticalCenter: parent.verticalCenter
-          }
-          PanelSectionHeader {
-            id: phoneHeadTitle
-            text: "PHONE"
-            foreground: root.fg()
-            fontFamily: Style.font.family
-            anchors.verticalCenter: parent.verticalCenter
-          }
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: phoneHead.open = !phoneHead.open
-          }
+        PanelSectionHeader {
+          text: "PHONE"
+          foreground: root.fg()
+          fontFamily: Style.font.family
         }
-
-        Item {
+        Row {
           width: parent.width
-          height: phoneHead.open ? phoneBody.height : 0
-          clip: true
-          Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
-          Column {
-            id: phoneBody
-            width: parent.width
-            spacing: Style.space(6)
-          Row {
-            width: parent.width
-            spacing: Style.space(6)
-            Button { iconText: "\uDB80\uDC4D"; tooltipText: "Back"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_BACK") }
-            Button { iconText: "\uDB80\uDEDC"; tooltipText: "Home"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_HOME") }
-            Button { iconText: "\uDB80\uDC3B"; tooltipText: "Recents"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_APP_SWITCH") }
-            Button { iconText: "\uDB81\uDC25"; tooltipText: "Power"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_POWER") }
-            Button { iconText: "\uDB81\uDF5E"; tooltipText: "Volume down"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_VOLUME_DOWN") }
-            Button { iconText: "\uDB81\uDF5D"; tooltipText: "Volume up"; fontFamily: root.iconFont; foreground: root.fg(); background: "transparent"; bordered: true; width: (parent.width - parent.spacing * 5) / 6; onClicked: root.sendKey("KEYCODE_VOLUME_UP") }
+          spacing: Style.space(8)
+          Repeater {
+            model: [
+              { key: "KEYCODE_BACK", icon: "\uDB80\uDC4D", tip: "Back" },
+              { key: "KEYCODE_HOME", icon: "\uDB80\uDEDC", tip: "Home" },
+              { key: "KEYCODE_APP_SWITCH", icon: "\uDB80\uDC3B", tip: "Recents" },
+              { key: "KEYCODE_POWER", icon: "\uDB81\uDC25", tip: "Power" },
+              { key: "KEYCODE_VOLUME_DOWN", icon: "\uDB81\uDF5E", tip: "Volume down" },
+              { key: "KEYCODE_VOLUME_UP", icon: "\uDB81\uDF5D", tip: "Volume up" }
+            ]
+            Item {
+              width: (parent.width - parent.spacing * 5) / 6
+              height: Style.space(48)
+              RoundButton {
+                anchors.centerIn: parent
+                size: Style.space(48)
+                iconText: modelData.icon
+                tooltipText: modelData.tip
+                fontFamily: root.iconFont
+                foreground: root.fg()
+                onClicked: root.sendKey(modelData.key)
+              }
+            }
           }
-        }
         }
 
 
