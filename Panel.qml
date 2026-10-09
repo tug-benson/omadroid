@@ -473,26 +473,48 @@ Panel {
         Row {
           spacing: Style.space(8)
           width: parent.width
-          Text {
-            id: titleGlyph
-            text: "\ue70e"
-            color: root.fg()
-            font.family: root.iconFont
-            font.pixelSize: Style.font.title
+          Rectangle {
+            id: appBadge
+            width: Style.space(44)
+            height: Style.space(44)
+            radius: Style.cornerRadius
             anchors.verticalCenter: parent.verticalCenter
+            color: Util.alpha(root.fg(), 0.08)
+            border.color: Util.alpha(root.fg(), 0.2)
+            border.width: 1
+            Text {
+              anchors.centerIn: parent
+              textFormat: Text.PlainText
+              text: "\uDB80\uDD1C"
+              color: root.fg()
+              font.family: root.iconFont
+              font.pixelSize: Style.space(26)
+            }
           }
-          Text {
-            id: titleText
-            text: "Omadroid"
-            color: root.fg()
-            font.family: Style.font.family
-            font.pixelSize: Style.font.title
-            font.bold: true
+          Column {
+            id: titleCol
+            spacing: Style.space(2)
             anchors.verticalCenter: parent.verticalCenter
+            Text {
+              id: titleText
+              textFormat: Text.PlainText
+              text: "Omadroid"
+              color: root.fg()
+              font.family: Style.font.family
+              font.pixelSize: Style.font.display
+              font.bold: true
+              font.letterSpacing: 1
+            }
+            Rectangle {
+              width: titleText.implicitWidth
+              height: Style.space(3)
+              radius: height / 2
+              color: root.glowColor()
+            }
           }
           Item {
-            width: parent.width - titleGlyph.width - titleText.width - Style.space(16)
-            height: wifiInfo.height
+            width: parent.width - appBadge.width - titleCol.width - parent.spacing * 2
+            height: appBadge.height
             PanelActionButton {
               id: githubBtn
               anchors.right: parent.right
