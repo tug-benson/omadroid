@@ -8,22 +8,24 @@ organized in native Omarchy sections:
 
 - **Hero card** — phone mock with a softly pulsing halo (green = USB,
   orange = WiFi, red = disconnected), device model, status, battery
-  gauge, and compact **Connect ⇄ Disconnect** (morphing button, pulses
-  with a "Connecting…" state while ADB works) + **Wake** actions.
+  gauge, compact **Connect ⇄ Disconnect** (morphing button, pulses
+  with a "Connecting…" state while ADB works) + **Wake** actions, and
+  four mini WiFi / BT / Data / Airplane tiles stacked on the right.
 - **CONNECTION** — USB / WiFi segmented pill with a sliding cursor and,
-  in WiFi mode, the IP field on the same row. Device chips (tapping one
-  aligns the transport mode).
+  on the same row, the WiFi IP field (in WiFi mode) or the active USB
+  device (in USB mode, click to list all devices). The full device list
+  lives in a collapsed **DEVICES** section just below.
 - **Slim ▶ Open screen** CTA that launches the interactive scrcpy
   window (1080p equivalent; quality is fixed to keep the panel compact —
   override `max_size` in `~/.config/omarchy/omadroid.conf` if needed).
-- **PREVIEW** — a read-only auto-refreshing screenshot of the phone
-  (rotate / expand / brightness / save-snapshot actions). All
+- **PREVIEW** (collapsible, closed by default) — a read-only
+  auto-refreshing screenshot of the phone (rotate / expand /
+  brightness / save-snapshot actions, revealed on hover). All
   interaction happens in the scrcpy window.
 - **PHONE** (collapsible, open by default) — Back / Home / Recents /
   Power / Volume keys.
 - **DEVICE** (collapsible with animated open/close, closed by default) —
-  RAM / CPU / storage cards (hidden while disconnected) and glowing
-  WiFi / Bluetooth / mobile data / airplane-mode tiles.
+  RAM / CPU / storage cards, hidden while disconnected.
 
 The last used WiFi IP and mode are remembered between sessions.
 

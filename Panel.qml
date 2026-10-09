@@ -79,6 +79,18 @@ Panel {
     return "#e5484d"
   }
 
+  function selectedDeviceLabel() {
+    if (root.selectedSerial) {
+      for (var i = 0; i < root.devices.count; i++) {
+        var d = root.devices.get(i)
+        if (d.serial === root.selectedSerial)
+          return (d.transport === "wifi" ? "WiFi · " : "USB · ") + (d.name || d.serial)
+      }
+      return root.selectedSerial
+    }
+    return ""
+  }
+
   function toggleState(k) {
     if (k === "wifi") return root.toggleWifi
     if (k === "bt") return root.toggleBt
@@ -384,7 +396,7 @@ Panel {
     id: previewTimer
     interval: 1000
     repeat: true
-    running: root.opened
+    running: root.opened && previewHead.open
     triggeredOnStart: true
     onTriggered: root.refreshPreview()
   }
@@ -547,7 +559,7 @@ Panel {
             }
 
             Column {
-              width: parent.width - Style.space(46) - parent.spacing
+              width: parent.width - Style.space(40) - heroToggles.width - parent.spacing * 2
               spacing: Style.space(6)
               anchors.verticalCenter: parent.verticalCenter
 
@@ -641,6 +653,160 @@ Panel {
                 }
               }
             }
+            Column {
+              id: heroToggles
+              width: Style.space(104)
+              spacing: Style.space(4)
+              anchors.verticalCenter: parent.verticalCenter
+              Rectangle {
+                width: heroToggles.width
+                height: Style.space(30)
+                radius: Style.cornerRadius
+                property bool tileOn: root.toggleState("wifi")
+                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                border.width: 1
+                opacity: root.canInteract ? 1.0 : 0.5
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: Style.space(8)
+                  spacing: Style.space(6)
+                  Rectangle {
+                    width: Style.space(8)
+                    height: Style.space(8)
+                    radius: width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                  }
+                  Text {
+                    text: "WiFi"
+                    color: root.fg()
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                    font.bold: true
+                    textFormat: Text.PlainText
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.doToggle("wifi")
+                }
+              }
+              Rectangle {
+                width: heroToggles.width
+                height: Style.space(30)
+                radius: Style.cornerRadius
+                property bool tileOn: root.toggleState("bt")
+                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                border.width: 1
+                opacity: root.canInteract ? 1.0 : 0.5
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: Style.space(8)
+                  spacing: Style.space(6)
+                  Rectangle {
+                    width: Style.space(8)
+                    height: Style.space(8)
+                    radius: width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                  }
+                  Text {
+                    text: "BT"
+                    color: root.fg()
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                    font.bold: true
+                    textFormat: Text.PlainText
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.doToggle("bt")
+                }
+              }
+              Rectangle {
+                width: heroToggles.width
+                height: Style.space(30)
+                radius: Style.cornerRadius
+                property bool tileOn: root.toggleState("data")
+                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                border.width: 1
+                opacity: root.canInteract ? 1.0 : 0.5
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: Style.space(8)
+                  spacing: Style.space(6)
+                  Rectangle {
+                    width: Style.space(8)
+                    height: Style.space(8)
+                    radius: width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                  }
+                  Text {
+                    text: "Data"
+                    color: root.fg()
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                    font.bold: true
+                    textFormat: Text.PlainText
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.doToggle("data")
+                }
+              }
+              Rectangle {
+                width: heroToggles.width
+                height: Style.space(30)
+                radius: Style.cornerRadius
+                property bool tileOn: root.toggleState("airplane")
+                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
+                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
+                border.width: 1
+                opacity: root.canInteract ? 1.0 : 0.5
+                Behavior on color { ColorAnimation { duration: 150 } }
+                Row {
+                  anchors.fill: parent
+                  anchors.leftMargin: Style.space(8)
+                  spacing: Style.space(6)
+                  Rectangle {
+                    width: Style.space(8)
+                    height: Style.space(8)
+                    radius: width / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
+                  }
+                  Text {
+                    text: "Airplane"
+                    color: root.fg()
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.bodySmall
+                    font.bold: true
+                    textFormat: Text.PlainText
+                    anchors.verticalCenter: parent.verticalCenter
+                  }
+                }
+                MouseArea {
+                  anchors.fill: parent
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: root.doToggle("airplane")
+                }
+              }
+            }
           }
         }
 
@@ -727,22 +893,80 @@ Panel {
               }
             }
           }
-          TextField {
-            id: ipField
-            visible: root.mode === "wifi"
-            width: parent.width - modePill.width - parent.spacing
-            anchors.verticalCenter: parent.verticalCenter
-            foreground: root.fg()
-            placeholderText: "192.168.1.x"
-            text: root.wifiIp
-            onTextChanged: root.wifiIp = text
-            onAccepted: root.saveConfig()
-            onEditingFinished: root.saveConfig()
-          }
+            Item {
+              width: parent.width - modePill.width - parent.spacing
+              height: modePill.height
+              anchors.verticalCenter: parent.verticalCenter
+              TextField {
+                id: ipField
+                anchors.fill: parent
+                visible: root.mode === "wifi"
+                foreground: root.fg()
+                placeholderText: "192.168.1.x"
+                text: root.wifiIp
+                onTextChanged: root.wifiIp = text
+                onAccepted: root.saveConfig()
+                onEditingFinished: root.saveConfig()
+              }
+              Button {
+                anchors.fill: parent
+                visible: root.mode === "usb"
+                text: root.selectedSerial !== "" ? root.selectedDeviceLabel() : "No USB device"
+                tooltipText: "Active USB device — click to list all devices"
+                bordered: true
+                foreground: root.fg()
+                background: "transparent"
+                fontSize: Style.font.bodySmall
+                verticalPadding: Style.spacing.xs
+                opacity: root.selectedSerial !== "" ? 1.0 : 0.55
+                onClicked: devicesHead.open = !devicesHead.open
+              }
+            }
         }
 
 
         // Device picker (chips wrap; selecting one aligns the mode)
+
+        Item {
+          id: devicesHead
+          width: parent.width
+          visible: root.devices.count > 0
+          height: devicesTitle.implicitHeight
+          Row {
+            anchors.fill: parent
+            spacing: Style.space(6)
+            Text {
+              text: devicesHead.open ? "\uF078" : "\uF054"
+              color: Util.alpha(root.fg(), 0.7)
+              font.family: root.iconFont
+              font.pixelSize: Style.font.caption
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            PanelSectionHeader {
+              id: devicesTitle
+              text: "DEVICES · " + root.devices.count
+              foreground: root.fg()
+              fontFamily: Style.font.family
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: devicesHead.open = !devicesHead.open
+          }
+          property bool open: false
+        }
+        Item {
+          width: parent.width
+          visible: root.devices.count > 0
+          height: devicesHead.open ? devicesBody.height : 0
+          clip: true
+          Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+          Column {
+            id: devicesBody
+            width: parent.width
+            spacing: Style.space(6)
         Flow {
           visible: root.devices.count > 0
           width: parent.width
@@ -760,7 +984,8 @@ Panel {
             }
           }
         }
-
+          }
+        }
         Text {
           visible: root.devices.count === 0 && root.connected === "none"
           width: parent.width
@@ -941,90 +1166,51 @@ Panel {
           }
 
           // Quick connectivity toggles (grouped 2x2 so they stay compact)
-          Column {
-            width: parent.width
-            spacing: Style.space(6)
-            visible: root.connected !== "none" || root.selectedSerial !== ""
-
-            PanelSectionHeader {
-              text: "QUICK TOGGLES"
-              foreground: root.fg()
-              fontFamily: Style.font.family
-            }
-
-          Grid {
-            id: tileGrid
-            width: parent.width
-            columns: 2
-            spacing: Style.space(8)
-            Repeater {
-              model: [
-                { key: "wifi", label: "WiFi" },
-                { key: "bt", label: "Bluetooth" },
-                { key: "data", label: "Mobile data" },
-                { key: "airplane", label: "Airplane" }
-              ]
-              Rectangle {
-                width: (tileGrid.width - tileGrid.spacing) / 2
-                height: Style.space(66)
-                radius: Style.cornerRadius
-                property bool tileOn: root.toggleState(modelData.key)
-                color: tileOn ? Util.alpha(Color.accent, 0.22) : Util.alpha(root.fg(), 0.06)
-                border.color: tileOn ? Util.alpha(Color.accent, 0.65) : Util.alpha(root.fg(), 0.18)
-                border.width: 1
-                Behavior on color { ColorAnimation { duration: 150 } }
-                Column {
-                  anchors.fill: parent
-                  anchors.margins: Style.space(10)
-                  spacing: Style.space(2)
-                  Row {
-                    spacing: Style.space(8)
-                    Rectangle {
-                      width: Style.space(8)
-                      height: Style.space(8)
-                      radius: width / 2
-                      anchors.verticalCenter: parent.verticalCenter
-                      color: tileOn ? Color.accent : Util.alpha(root.fg(), 0.3)
-                    }
-                    Text {
-                      text: modelData.label
-                      color: root.fg()
-                      font.family: Style.font.family
-                      font.pixelSize: Style.font.body
-                      font.bold: true
-                      textFormat: Text.PlainText
-                      anchors.verticalCenter: parent.verticalCenter
-                    }
-                  }
-                  Text {
-                    text: tileOn ? "On" : "Off"
-                    color: Util.alpha(root.fg(), 0.6)
-                    font.family: Style.font.family
-                    font.pixelSize: Style.font.caption
-                    textFormat: Text.PlainText
-                  }
-                }
-                MouseArea {
-                  anchors.fill: parent
-                  cursorShape: Qt.PointingHandCursor
-                  onClicked: root.doToggle(modelData.key)
-                }
-              }
-            }
-          }
-        }
         }
         }
 
         // -- PREVIEW (read-only — use Open screen to interact) ────
         PanelSeparator { foreground: root.fg() }
-        PanelSectionHeader {
-          text: "PREVIEW"
-          foreground: root.fg()
-          fontFamily: Style.font.family
+        Item {
+          id: previewHead
+          width: parent.width
+          height: previewTitle.implicitHeight
+          property bool open: false
+          Row {
+            anchors.fill: parent
+            spacing: Style.space(6)
+            Text {
+              text: previewHead.open ? "\uF078" : "\uF054"
+              color: Util.alpha(root.fg(), 0.7)
+              font.family: root.iconFont
+              font.pixelSize: Style.font.caption
+              anchors.verticalCenter: parent.verticalCenter
+            }
+            PanelSectionHeader {
+              id: previewTitle
+              text: "PREVIEW"
+              foreground: root.fg()
+              fontFamily: Style.font.family
+              anchors.verticalCenter: parent.verticalCenter
+            }
+          }
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: previewHead.open = !previewHead.open
+          }
         }
 
         // Preview
+        Item {
+          width: parent.width
+          height: previewHead.open ? previewBody.height : 0
+          clip: true
+          Behavior on height { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
+          Column {
+            id: previewBody
+            width: parent.width
+            spacing: Style.space(6)
         Rectangle {
           id: previewBox
           width: parent.width
@@ -1078,6 +1264,7 @@ Panel {
             PanelActionButton { iconText: "\uDB80\uDCE0"; tooltipText: "Brightness up"; fontFamily: root.iconFont; foreground: root.fg(); size: Style.space(32); onClicked: root.brightness("up") }
             PanelActionButton { iconText: "\uDB80\uDD93"; tooltipText: "Save snapshot"; fontFamily: root.iconFont; foreground: root.fg(); size: Style.space(32); onClicked: root.savePreview() }
           }
+        }          }
         }
       }
     }
